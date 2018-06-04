@@ -26,7 +26,12 @@
 package com.erigitic.commands;
 
 import com.erigitic.config.AccountManager;
-import com.erigitic.jobs.*;
+import com.erigitic.jobs.JobBasedRequirement;
+import com.erigitic.jobs.JobManager;
+import com.erigitic.jobs.TEAction;
+import com.erigitic.jobs.TEActionReward;
+import com.erigitic.jobs.TEJob;
+import com.erigitic.jobs.TEJobSet;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.util.MessageManager;
 import java.math.BigDecimal;
@@ -54,23 +59,21 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class JobCommand implements CommandExecutor {
 
-    private TotalEconomy totalEconomy;
     private AccountManager accountManager;
     private JobManager jobManager;
     private MessageManager messageManager;
 
-    public JobCommand(TotalEconomy totalEconomy, AccountManager accountManager, JobManager jobManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.jobManager = jobManager;
-        this.messageManager = messageManager;
+    public JobCommand() {
+        accountManager = TotalEconomy.getAccountManager();
+        jobManager = TotalEconomy.getJobManager();
+        messageManager = TotalEconomy.getMessageManager();
     }
 
     public CommandSpec commandSpec() {
-        Set jobSetCommand = new Set(totalEconomy, jobManager, messageManager);
-        Info jobInfoCommand = new Info(totalEconomy, jobManager);
-        Reload jobReloadCommand = new Reload(jobManager);
-        Toggle jobToggleCommand = new Toggle(accountManager);
+        Set jobSetCommand = new Set();
+        Info jobInfoCommand = new Info();
+        Reload jobReloadCommand = new Reload();
+        Toggle jobToggleCommand = new Toggle();
 
         return CommandSpec.builder()
                 .child(jobSetCommand.commandSpec(), "set", "s")
@@ -88,7 +91,7 @@ public class JobCommand implements CommandExecutor {
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
         if (src instanceof Player) {
             Player player = ((Player) src).getPlayer().get();
-            String jobName = totalEconomy.getJobManager().getPlayerJob(player);
+            String jobName = jobManager.getPlayerJob(player);
 
             Map<String, String> messageValues = new HashMap<>();
             messageValues.put("job", jobManager.titleize(jobName));
@@ -99,7 +102,7 @@ public class JobCommand implements CommandExecutor {
             player.sendMessage(messageManager.getMessage("command.job.current", messageValues));
             player.sendMessage(messageManager.getMessage("command.job.level", messageValues));
             player.sendMessage(messageManager.getMessage("command.job.exp", messageValues));
-            player.sendMessage(Text.of(TextColors.GRAY, "Available Jobs: ", TextColors.GOLD, totalEconomy.getJobManager().getJobList()));
+            player.sendMessage(Text.of(TextColors.GRAY, "Available Jobs: ", TextColors.GOLD, jobManager.getJobList()));
 
             return CommandResult.success();
         } else {
@@ -108,16 +111,6 @@ public class JobCommand implements CommandExecutor {
     }
 
     private class Set implements CommandExecutor {
-
-        private TotalEconomy totalEconomy;
-        private MessageManager messageManager;
-        private JobManager jobManager;
-
-        public Set(TotalEconomy totalEconomy, JobManager jobManager, MessageManager messageManager) {
-            this.totalEconomy = totalEconomy;
-            this.jobManager = jobManager;
-            this.messageManager = messageManager;
-        }
 
         public CommandSpec commandSpec() {
             return CommandSpec.builder()
@@ -150,7 +143,7 @@ public class JobCommand implements CommandExecutor {
                 return CommandResult.empty();
             }
 
-            Optional<TEJob> optJob = totalEconomy.getJobManager().getJob(jobName, false);
+            Optional<TEJob> optJob = jobManager.getJob(jobName, false);
             if (!optJob.isPresent()) {
                 throw new CommandException(Text.of("Job " + jobName + " does not exist!"));
             }
@@ -163,7 +156,7 @@ public class JobCommand implements CommandExecutor {
                     throw new CommandException(Text.of("Not permitted to join job \"", TextColors.GOLD, jobName, TextColors.RED, "\""));
                 }
 
-                if (req.getRequiredJob() != null && req.getRequiredJobLevel() > totalEconomy.getJobManager().getJobLevel(req.getRequiredJob().toLowerCase(), user)) {
+                if (req.getRequiredJob() != null && req.getRequiredJobLevel() > jobManager.getJobLevel(req.getRequiredJob().toLowerCase(), user)) {
                     throw new CommandException(Text.of("Insufficient level! Level ",
                              TextColors.GOLD, req.getRequiredJobLevel(), TextColors.RED," as a ",
                              TextColors.GOLD, req.getRequiredJob(), TextColors.RED, " required!"));
@@ -190,16 +183,8 @@ public class JobCommand implements CommandExecutor {
 
     private class Info implements CommandExecutor {
 
-        private TotalEconomy totalEconomy;
-        private JobManager jobManager;
-
         private PaginationService paginationService = Sponge.getServiceManager().provideUnchecked(PaginationService.class);
         private PaginationList.Builder pageBuilder = paginationService.builder();
-
-        public Info(TotalEconomy totalEconomy, JobManager jobManager) {
-            this.totalEconomy = totalEconomy;
-            this.jobManager = jobManager;
-        }
 
         public CommandSpec commandSpec() {
             return CommandSpec.builder()
@@ -286,19 +271,13 @@ public class JobCommand implements CommandExecutor {
         Optional<Currency> rewardCurrencyOpt = Optional.empty();
 
         if (reward.getCurrencyId() != null) {
-            rewardCurrencyOpt = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + reward.getCurrencyId());
+            rewardCurrencyOpt = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + reward.getCurrencyId());
         }
 
-        return Text.of("(", reward.getExpReward(), " EXP) (", rewardCurrencyOpt.orElse(totalEconomy.getDefaultCurrency()).format(new BigDecimal(reward.getMoneyReward())), ")");
+        return Text.of("(", reward.getExpReward(), " EXP) (", rewardCurrencyOpt.orElse(TotalEconomy.getDefaultCurrency()).format(new BigDecimal(reward.getMoneyReward())), ")");
     }
 
     private class Reload implements CommandExecutor {
-
-        private JobManager jobManager;
-
-        public Reload(JobManager jobManager) {
-            this.jobManager = jobManager;
-        }
 
         public CommandSpec commandSpec() {
             return CommandSpec.builder()
@@ -325,12 +304,6 @@ public class JobCommand implements CommandExecutor {
 
         private final String[] TOGGLE_PLAYER_OPTIONS = {"block-break-info", "block-place-info", "entity-kill-info", "entity-fish-info"};
         private final List<String> TOGGLE_PLAYER_OPTIONS_LIST = Arrays.asList(TOGGLE_PLAYER_OPTIONS);
-
-        private AccountManager accountManager;
-
-        public Toggle(AccountManager accountManager) {
-            this.accountManager = accountManager;
-        }
 
         public CommandSpec commandSpec() {
             return CommandSpec.builder()

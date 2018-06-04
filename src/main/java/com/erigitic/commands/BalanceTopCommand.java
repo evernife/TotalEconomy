@@ -49,7 +49,6 @@ import org.spongepowered.api.command.spec.CommandExecutor;
 import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.service.economy.Currency;
-import org.spongepowered.api.service.pagination.PaginationList;
 import org.spongepowered.api.service.pagination.PaginationService;
 import org.spongepowered.api.service.user.UserStorageService;
 import org.spongepowered.api.text.Text;
@@ -57,18 +56,13 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class BalanceTopCommand implements CommandExecutor {
 
-    private TotalEconomy totalEconomy;
     private AccountManager accountManager;
 
-    private PaginationService paginationService = Sponge.getServiceManager().provideUnchecked(PaginationService.class);
-    private PaginationList.Builder builder = paginationService.builder();
-
-    public BalanceTopCommand(TotalEconomy totalEconomy, AccountManager accountManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
+    public BalanceTopCommand() {
+        accountManager = TotalEconomy.getAccountManager();
     }
 
-    public static CommandSpec commandSpec(TotalEconomy totalEconomy) {
+    public static CommandSpec commandSpec() {
         return CommandSpec.builder()
                 .description(Text.of("Display top balances"))
                 .permission("totaleconomy.command.balancetop")
@@ -77,7 +71,7 @@ public class BalanceTopCommand implements CommandExecutor {
                                 GenericArguments.string(Text.of("currency"))
                         )
                 )
-                .executor(new BalanceTopCommand(totalEconomy, totalEconomy.getAccountManager()))
+                .executor(new BalanceTopCommand())
                 .build();
     }
 
@@ -88,18 +82,18 @@ public class BalanceTopCommand implements CommandExecutor {
         List<Text> accountBalances = new ArrayList<>();
 
         if (optCurrency.isPresent()) {
-            currency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
+            currency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
         }
 
         if (currency == null) {
-            currency = totalEconomy.getDefaultCurrency();
+            currency = TotalEconomy.getDefaultCurrency();
         }
 
         final Currency fCurrency = currency;
 
-        if (totalEconomy.isDatabaseEnabled()) {
+        if (TotalEconomy.isDatabaseEnabled()) {
             try {
-                Statement statement = totalEconomy.getSqlManager().dataSource.getConnection().createStatement();
+                Statement statement = TotalEconomy.getSqlManager().dataSource.getConnection().createStatement();
                 String currencyColumn = currency.getName() + "_balance";
                 statement.execute("SELECT * FROM accounts ORDER BY `" + currencyColumn + "` DESC LIMIT 10");
                 ResultSet set = statement.getResultSet();
@@ -143,9 +137,11 @@ public class BalanceTopCommand implements CommandExecutor {
                     );
         }
 
-        builder.title(Text.of(TextColors.GOLD, "Top 10 Balances"))
-               .contents(accountBalances)
-               .sendTo(src);
+        PaginationService paginationService = Sponge.getServiceManager().provideUnchecked(PaginationService.class);
+        paginationService.builder()
+                .title(Text.of(TextColors.GOLD, "Top 10 Balances"))
+                .contents(accountBalances)
+                .sendTo(src);
 
         return CommandResult.success();
     }

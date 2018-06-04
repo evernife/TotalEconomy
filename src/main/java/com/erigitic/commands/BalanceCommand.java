@@ -37,24 +37,33 @@ import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandContext;
+import org.spongepowered.api.command.args.GenericArguments;
 import org.spongepowered.api.command.spec.CommandExecutor;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.service.economy.Currency;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 
 public class BalanceCommand implements CommandExecutor {
-    private TotalEconomy totalEconomy;
+
     private AccountManager accountManager;
     private MessageManager messageManager;
     private Currency defaultCurrency;
 
-    public BalanceCommand(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.messageManager = messageManager;
+    public BalanceCommand() {
+        accountManager = TotalEconomy.getAccountManager();
+        messageManager = TotalEconomy.getMessageManager();
+        defaultCurrency = TotalEconomy.getDefaultCurrency();
+    }
 
-        defaultCurrency = totalEconomy.getDefaultCurrency();
+    public static CommandSpec commandSpec() {
+        return CommandSpec.builder()
+                .description(Text.of("Display your balance"))
+                .permission("totaleconomy.command.balance")
+                .executor(new BalanceCommand())
+                .arguments(GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
+                .build();
     }
 
     @Override
@@ -66,7 +75,7 @@ public class BalanceCommand implements CommandExecutor {
             Map<String, String> messageValues = new HashMap<>();
 
             if (optCurrencyName.isPresent()) {
-                Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+                Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
                 if (optCurrency.isPresent()) {
                     TECurrency currency = (TECurrency) optCurrency.get();

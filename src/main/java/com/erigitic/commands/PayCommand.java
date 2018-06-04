@@ -40,7 +40,9 @@ import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandContext;
+import org.spongepowered.api.command.args.GenericArguments;
 import org.spongepowered.api.command.spec.CommandExecutor;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.cause.EventContext;
@@ -50,14 +52,24 @@ import org.spongepowered.api.service.economy.transaction.TransferResult;
 import org.spongepowered.api.text.Text;
 
 public class PayCommand implements CommandExecutor {
-    private TotalEconomy totalEconomy;
+
     private AccountManager accountManager;
     private MessageManager messageManager;
 
-    public PayCommand(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.messageManager = messageManager;
+    public PayCommand() {
+        accountManager = TotalEconomy.getAccountManager();
+        messageManager = TotalEconomy.getMessageManager();
+    }
+
+    public static CommandSpec commandSpec() {
+        return CommandSpec.builder()
+                .description(Text.of("Pay another player"))
+                .permission("totaleconomy.command.pay")
+                .executor(new PayCommand())
+                .arguments(GenericArguments.player(Text.of("player")),
+                        GenericArguments.string(Text.of("amount")),
+                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
+                .build();
     }
 
     @Override
@@ -110,11 +122,11 @@ public class PayCommand implements CommandExecutor {
 
     private TransferResult getTransferResult(TEAccount senderAccount, TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(totalEconomy.getPluginContainer())
+                .append(TotalEconomy.getInstance())
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 TECurrency teCurrency = (TECurrency) optCurrency.get();
@@ -128,7 +140,7 @@ public class PayCommand implements CommandExecutor {
                 throw new CommandException(Text.of("[TE] The specified currency does not exist!"));
             }
         } else {
-            return senderAccount.transfer(recipientAccount, totalEconomy.getDefaultCurrency(), amount, cause);
+            return senderAccount.transfer(recipientAccount, TotalEconomy.getDefaultCurrency(), amount, cause);
         }
     }
 }

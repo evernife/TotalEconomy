@@ -116,14 +116,14 @@ public class TotalEconomy {
 
     private ConfigurationNode config;
 
-    private TECurrency defaultCurrency;
-    private SqlManager sqlManager;
-    private AccountManager accountManager;
-    private JobManager jobManager;
-    private MessageManager messageManager;
-    private ShopManager shopManager;
-
-    private TECurrencyRegistryModule teCurrencyRegistryModule;
+    private static TotalEconomy instance;
+    private static TECurrency defaultCurrency;
+    private static SqlManager sqlManager;
+    private static AccountManager accountManager;
+    private static JobManager jobManager;
+    private static MessageManager messageManager;
+    private static ShopManager shopManager;
+    private static TECurrencyRegistryModule teCurrencyRegistryModule;
 
     private HashSet<Currency> currencies = new HashSet<>();
 
@@ -140,7 +140,7 @@ public class TotalEconomy {
     private boolean chestShopEnabled = true;
 
     // Database Variables
-    private boolean databaseEnabled = false;
+    private static boolean databaseEnabled = false;
     private String databaseUrl;
     private String databaseUser;
     private String databasePassword;
@@ -151,6 +151,8 @@ public class TotalEconomy {
 
     @Listener
     public void preInit(GamePreInitializationEvent event) {
+        instance = this;
+
         loadConfig();
 
         loadCurrencies();
@@ -170,7 +172,7 @@ public class TotalEconomy {
         }
 
         messageManager = new MessageManager(this, logger, Locale.forLanguageTag(languageTag));
-        accountManager = new AccountManager(this, messageManager, logger);
+        accountManager = new AccountManager(this, logger);
 
         teCurrencyRegistryModule = new TECurrencyRegistryModule(this);
 
@@ -196,7 +198,7 @@ public class TotalEconomy {
     @Listener
     public void init(GameInitializationEvent event) {
         createAndRegisterData();
-        createAndRegisterCommands();
+        registerCommands();
         registerListeners();
     }
 
@@ -306,63 +308,20 @@ public class TotalEconomy {
     /**
      * Create commands and registers them with the CommandManager.
      */
-    private void createAndRegisterCommands() {
-        CommandSpec adminPayCommand = CommandSpec.builder()
-                .description(Text.of("Pay a player without removing money from your balance."))
-                .permission("totaleconomy.command.adminpay")
-                .executor(new AdminPayCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.user(Text.of("player")),
-                        GenericArguments.string(Text.of("amount")),
-                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
-                .build();
-        game.getCommandManager().register(this, adminPayCommand, "adminpay");
-
-        CommandSpec balanceCommand = CommandSpec.builder()
-                .description(Text.of("Display your balance"))
-                .permission("totaleconomy.command.balance")
-                .executor(new BalanceCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
-                .build();
-        game.getCommandManager().register(this, balanceCommand, "balance", "bal", "money");
-
-        CommandSpec balanceTopCommand = BalanceTopCommand.commandSpec(this);
-        game.getCommandManager().register(this, balanceTopCommand, "balancetop", "baltop");
-
-        CommandSpec payCommand = CommandSpec.builder()
-                .description(Text.of("Pay another player"))
-                .permission("totaleconomy.command.pay")
-                .executor(new PayCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.player(Text.of("player")),
-                        GenericArguments.string(Text.of("amount")),
-                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
-                .build();
-        game.getCommandManager().register(this, payCommand, "pay");
-
-        CommandSpec setBalanceCommand = CommandSpec.builder()
-                .description(Text.of("Set a player's balance"))
-                .permission("totaleconomy.command.setbalance")
-                .executor(new SetBalanceCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.user(Text.of("player")),
-                        GenericArguments.string(Text.of("amount")),
-                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
-                .build();
-        game.getCommandManager().register(this, setBalanceCommand, "setbalance", "setbal");
-
-        CommandSpec viewBalanceCommand = CommandSpec.builder()
-                .description(Text.of("View the balance of another player"))
-                .permission("totaleconomy.command.viewbalance")
-                .executor(new ViewBalanceCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.user(Text.of("player")),
-                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
-                .build();
-        game.getCommandManager().register(this, viewBalanceCommand, "viewbalance", "vbal");
+    private void registerCommands() {
+        game.getCommandManager().register(this, AdminPayCommand.commandSpec(), "adminpay");
+        game.getCommandManager().register(this, BalanceCommand.commandSpec(), "balance", "bal", "money");
+        game.getCommandManager().register(this, BalanceTopCommand.commandSpec(), "balancetop", "baltop");
+        game.getCommandManager().register(this, PayCommand.commandSpec(), "pay");
+        game.getCommandManager().register(this, SetBalanceCommand.commandSpec(), "setbalance", "setbal");
+        game.getCommandManager().register(this, ViewBalanceCommand.commandSpec(), "viewbalance", "vbal");
 
         if (jobFeatureEnabled) {
-            game.getCommandManager().register(this, new JobCommand(this, accountManager, jobManager, messageManager).commandSpec(), "job");
+            game.getCommandManager().register(this, new JobCommand().commandSpec(), "job");
         }
 
         if (chestShopEnabled) {
-            game.getCommandManager().register(this, new ShopCommand(this, accountManager, shopManager, messageManager).getCommandSpec(), "shop");
+            game.getCommandManager().register(this, new ShopCommand().getCommandSpec(), "shop");
         }
 
     }
@@ -444,15 +403,15 @@ public class TotalEconomy {
         return currencies;
     }
 
-    public AccountManager getAccountManager() {
+    public static AccountManager getAccountManager() {
         return accountManager;
     }
 
-    public JobManager getJobManager() {
+    public static JobManager getJobManager() {
         return jobManager;
     }
 
-    public TECurrencyRegistryModule getTECurrencyRegistryModule() {
+    public static TECurrencyRegistryModule getTECurrencyRegistryModule() {
         return teCurrencyRegistryModule;
     }
 
@@ -472,7 +431,7 @@ public class TotalEconomy {
         return pluginContainer;
     }
 
-    public TECurrency getDefaultCurrency() {
+    public static TECurrency getDefaultCurrency() {
         return defaultCurrency;
     }
 
@@ -480,7 +439,7 @@ public class TotalEconomy {
         return jobSalaryEnabled;
     }
 
-    public boolean isDatabaseEnabled() {
+    public static boolean isDatabaseEnabled() {
         return databaseEnabled;
     }
 
@@ -512,7 +471,19 @@ public class TotalEconomy {
         return databasePassword;
     }
 
-    public SqlManager getSqlManager() {
+    public static SqlManager getSqlManager() {
         return sqlManager;
+    }
+
+    public static MessageManager getMessageManager() {
+        return messageManager;
+    }
+
+    public static TotalEconomy getInstance() {
+        return instance;
+    }
+
+    public static ShopManager getShopManager() {
+        return shopManager;
     }
 }

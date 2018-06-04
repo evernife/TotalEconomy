@@ -39,7 +39,9 @@ import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandContext;
+import org.spongepowered.api.command.args.GenericArguments;
 import org.spongepowered.api.command.spec.CommandExecutor;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.cause.EventContext;
@@ -50,14 +52,24 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 
 public class AdminPayCommand implements CommandExecutor {
-    private TotalEconomy totalEconomy;
+
     private AccountManager accountManager;
     private MessageManager messageManager;
 
-    public AdminPayCommand(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.messageManager = messageManager;
+    public AdminPayCommand() {
+        accountManager = TotalEconomy.getAccountManager();
+        messageManager = TotalEconomy.getMessageManager();
+    }
+
+    public static CommandSpec commandSpec() {
+        return CommandSpec.builder()
+                .description(Text.of("Pay a player without removing money from your balance."))
+                .permission("totaleconomy.command.adminpay")
+                .executor(new AdminPayCommand())
+                .arguments(GenericArguments.user(Text.of("player")),
+                        GenericArguments.string(Text.of("amount")),
+                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
+                .build();
     }
 
     @Override
@@ -115,11 +127,11 @@ public class AdminPayCommand implements CommandExecutor {
      */
     private TransactionResult getTransactionResult(TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(totalEconomy.getPluginContainer())
+                .append(TotalEconomy.getInstance())
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 return recipientAccount.deposit(optCurrency.get(), amount, cause);
@@ -127,7 +139,7 @@ public class AdminPayCommand implements CommandExecutor {
                 throw new CommandException(Text.of(TextColors.RED, "[TE] The specified currency does not exist!"));
             }
         } else {
-            return recipientAccount.deposit(totalEconomy.getDefaultCurrency(), amount, cause);
+            return recipientAccount.deposit(TotalEconomy.getDefaultCurrency(), amount, cause);
         }
     }
 }

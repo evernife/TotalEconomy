@@ -39,7 +39,9 @@ import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
 import org.spongepowered.api.command.args.CommandContext;
+import org.spongepowered.api.command.args.GenericArguments;
 import org.spongepowered.api.command.spec.CommandExecutor;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.cause.EventContext;
@@ -50,17 +52,26 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 
 public class SetBalanceCommand implements CommandExecutor {
-    private TotalEconomy totalEconomy;
+
     private AccountManager accountManager;
     private MessageManager messageManager;
     private Currency defaultCurrency;
 
-    public SetBalanceCommand(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.messageManager = messageManager;
+    public SetBalanceCommand() {
+        accountManager = TotalEconomy.getAccountManager();
+        messageManager = TotalEconomy.getMessageManager();
+        defaultCurrency = TotalEconomy.getDefaultCurrency();
+    }
 
-        defaultCurrency = totalEconomy.getDefaultCurrency();
+    public static CommandSpec commandSpec() {
+        return CommandSpec.builder()
+                .description(Text.of("Set a player's balance"))
+                .permission("totaleconomy.command.setbalance")
+                .executor(new SetBalanceCommand())
+                .arguments(GenericArguments.user(Text.of("player")),
+                        GenericArguments.string(Text.of("amount")),
+                        GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
+                .build();
     }
 
     @Override
@@ -105,11 +116,11 @@ public class SetBalanceCommand implements CommandExecutor {
      */
     private TransactionResult getTransactionResult(TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(totalEconomy.getPluginContainer())
+                .append(TotalEconomy.getInstance())
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 return recipientAccount.setBalance(optCurrency.get(), amount, cause);
