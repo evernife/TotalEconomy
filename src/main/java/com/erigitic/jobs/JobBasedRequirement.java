@@ -29,9 +29,10 @@ package com.erigitic.jobs;
  * Requirement notation that is usable in various places such as higher job tiers.
  */
 public class JobBasedRequirement {
-    private int requiredJobLevel;
-    private String requiredJob;
-    private String requiredPermission;
+
+    private final int requiredJobLevel;
+    private final String requiredJob;
+    private final String requiredPermission;
 
     public JobBasedRequirement(String requiredJob, int requiredJobLevel, String requiredPermission) {
         this.requiredJobLevel = requiredJobLevel;

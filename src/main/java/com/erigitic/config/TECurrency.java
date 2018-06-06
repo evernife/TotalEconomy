@@ -31,14 +31,14 @@ import org.spongepowered.api.text.Text;
 
 public class TECurrency implements Currency {
 
-    private Text singular;
-    private Text plural;
-    private Text symbol;
-    private int numFractionDigits;
-    private boolean isDefault;
-    private boolean prefixSymbol;
-    boolean isTransferable;
-    private BigDecimal startBalance;
+    private final Text singular;
+    private final Text plural;
+    private final Text symbol;
+    private final int numFractionDigits;
+    private final boolean isDefault;
+    private final boolean prefixSymbol;
+    private final boolean isTransferable;
+    private final BigDecimal startBalance;
 
     public TECurrency(Text singular, Text plural, Text symbol, int numFractionDigits, boolean defaultCurrency, boolean prefixSymbol, boolean isTransferable, BigDecimal startBalance) {
         this.singular = singular;

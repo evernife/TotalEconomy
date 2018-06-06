@@ -25,6 +25,7 @@
 
 package com.erigitic.config;
 
+import com.erigitic.main.TotalEconomy;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.cause.EventContext;
@@ -34,7 +35,7 @@ import org.spongepowered.api.service.economy.transaction.TransactionResult;
 
 public class TEEconomyTransactionEvent extends AbstractEvent implements EconomyTransactionEvent {
 
-    private TransactionResult transactionResult;
+    private final TransactionResult transactionResult;
 
     public TEEconomyTransactionEvent(TransactionResult transactionResult) {
         this.transactionResult = transactionResult;
@@ -43,7 +44,7 @@ public class TEEconomyTransactionEvent extends AbstractEvent implements EconomyT
     @Override
     public Cause getCause() {
         Cause cause = Cause.builder()
-                .append(Sponge.getPluginManager().getPlugin("totaleconomy").get())
+                .append(TotalEconomy.getInstance())
                 .build(EventContext.empty());
 
         return cause;

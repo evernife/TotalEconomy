@@ -47,6 +47,7 @@ import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.asset.Asset;
 import org.spongepowered.api.block.BlockState;
 import org.spongepowered.api.block.tileentity.Sign;
 import org.spongepowered.api.block.tileentity.TileEntity;
@@ -81,12 +82,12 @@ import org.spongepowered.api.text.format.TextStyles;
 
 public class JobManager {
 
-    private TotalEconomy totalEconomy;
-    private AccountManager accountManager;
-    private MessageManager messageManager;
-    private Logger logger;
-    private SqlManager sqlManager;
-
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
+    private final Logger logger;
+    private final SqlManager sqlManager;
+    private final boolean databaseEnabled;
 
     private File jobSetsFile;
     private ConfigurationLoader<CommentedConfigurationNode> jobSetsLoader;
@@ -98,31 +99,26 @@ public class JobManager {
     private ConfigurationNode jobsConfig;
     private Map<String, TEJob> jobsMap;
 
-    private boolean databaseEnabled;
+    private boolean notificationEnabled = true;
+    private boolean salaryEnabled = true;
 
-    public JobManager(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager, Logger logger) {
-        this.totalEconomy = totalEconomy;
+    public JobManager(AccountManager accountManager, MessageManager messageManager) {
         this.accountManager = accountManager;
         this.messageManager = messageManager;
-        this.logger = logger;
+
+        totalEconomy = TotalEconomy.getInstance();
+        logger = totalEconomy.getLogger();
 
         databaseEnabled = totalEconomy.isDatabaseEnabled();
-
-        if (databaseEnabled) {
-            sqlManager = totalEconomy.getSqlManager();
-        }
+        sqlManager = (databaseEnabled ? totalEconomy.getSqlManager() : null);
 
         setupConfig();
-
-        if (totalEconomy.isJobSalaryEnabled()) {
-            startSalaryTask();
-        }
     }
 
     /**
      * Start the timer that pays out the salary to each player after a specified time in seconds.
      */
-    private void startSalaryTask() {
+    public void startSalaryTask() {
         Scheduler scheduler = totalEconomy.getGame().getScheduler();
         Task.Builder payTask = scheduler.createTaskBuilder();
 
@@ -146,7 +142,7 @@ public class JobManager {
                                 .build();
 
                         Cause cause = Cause.builder()
-                                .append(totalEconomy.getPluginContainer())
+                                .append(totalEconomy)
                                 .build(eventContext);
 
                         TransactionResult result = playerAccount.deposit(totalEconomy.getDefaultCurrency(), salary, cause);
@@ -168,25 +164,29 @@ public class JobManager {
     /**
      * Setup the jobs config.
      */
-    public void setupConfig() {
+    private void setupConfig() {
         jobSetsFile = new File(totalEconomy.getConfigDir(), "jobsets.conf");
         jobSetsLoader = HoconConfigurationLoader.builder().setFile(jobSetsFile).build();
-        jobSets = new HashMap();
+        jobSets = new HashMap<>();
         reloadJobSetConfig();
 
         jobsFile = new File(totalEconomy.getConfigDir(), "jobs.conf");
         jobsLoader = HoconConfigurationLoader.builder().setFile(jobsFile).build();
-        jobsMap = new HashMap();
+        jobsMap = new HashMap<>();
         reloadJobsConfig();
     }
 
     /**
      * Reload the jobSet config.
      */
-    public boolean reloadJobSetConfig() {
+    private boolean reloadJobSetConfig() {
         try {
             if (!jobSetsFile.exists()) {
-                totalEconomy.getPluginContainer().getAsset("jobsets.conf").get().copyToFile(jobSetsFile.toPath());
+                Optional<Asset> asset = totalEconomy.getPluginContainer().getAsset("jobsets.conf");
+
+                if (asset.isPresent()) {
+                    asset.get().copyToFile(jobSetsFile.toPath());
+                }
             }
 
             jobSetsConfig = jobSetsLoader.load();
@@ -214,10 +214,14 @@ public class JobManager {
      *
      * @return boolean Was the reload successful?
      */
-    public boolean reloadJobsConfig() {
+    private boolean reloadJobsConfig() {
         try {
             if (!jobsFile.exists()) {
-                totalEconomy.getPluginContainer().getAsset("jobs.conf").get().copyToFile(jobsFile.toPath());
+                Optional<Asset> asset = totalEconomy.getPluginContainer().getAsset("jobs.conf");
+
+                if (asset.isPresent()) {
+                    asset.get().copyToFile(jobsFile.toPath());
+                }
             }
 
             jobsConfig = jobsLoader.load();
@@ -255,7 +259,7 @@ public class JobManager {
      * @param player The player to give experience to
      * @param expAmount The amount of experience to add
      */
-    public void addExp(Player player, int expAmount) {
+    private void addExp(Player player, int expAmount) {
         String jobName = getPlayerJob(player);
         UUID playerUniqueId = player.getUniqueId();
         boolean jobNotifications = accountManager.getJobNotificationState(player);
@@ -267,7 +271,7 @@ public class JobManager {
         if (databaseEnabled) {
             int newExp = getJobExp(jobName, player) + expAmount;
 
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .update("experience")
                     .set(jobName)
                     .equals(String.valueOf(newExp))
@@ -308,7 +312,7 @@ public class JobManager {
      *
      * @param player player object
      */
-    public void checkForLevel(Player player) {
+    private void checkForLevel(Player player) {
         UUID playerUniqueId = player.getUniqueId();
         String jobName = getPlayerJob(player);
         int playerLevel = getJobLevel(jobName, player);
@@ -323,7 +327,7 @@ public class JobManager {
             messageValues.put("level", String.valueOf(playerLevel));
 
             if (databaseEnabled) {
-                SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery.builder(sqlManager.getDataSource())
                         .update("levels")
                         .set(jobName)
                         .equals(String.valueOf(playerLevel))
@@ -331,7 +335,7 @@ public class JobManager {
                         .equals(playerUniqueId.toString())
                         .build();
 
-                SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery.builder(sqlManager.getDataSource())
                         .update("experience")
                         .set(jobName)
                         .equals(String.valueOf(playerCurExp))
@@ -355,12 +359,8 @@ public class JobManager {
      * @param jobName name of the job
      * @return boolean if the job exists or not
      */
-    public boolean jobExists(String jobName) {
-        if (jobsConfig.getNode("jobs", jobName.toLowerCase()).getValue() != null) {
-            return true;
-        }
-
-        return false;
+    private boolean jobExists(String jobName) {
+        return jobsConfig.getNode("jobs", jobName.toLowerCase()).getValue() != null;
     }
 
     /**
@@ -375,14 +375,14 @@ public class JobManager {
 
     private boolean getNotificationState(UUID uuid) {
         if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .select("job_notifications")
                     .from("accounts")
                     .where("uid")
                     .equals(uuid.toString())
                     .build();
 
-            return sqlQuery.getBoolean(totalEconomy.isJobNotificationEnabled());
+            return sqlQuery.getBoolean(totalEconomy.getJobManager().isNotificationEnabled());
         }
 
         return accountManager.getAccountConfig().getNode(uuid.toString(), "jobnotifications").getBoolean();
@@ -415,7 +415,7 @@ public class JobManager {
         jobName = jobName.toLowerCase();
 
         if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .update("accounts")
                     .set("job")
                     .equals(jobName)
@@ -470,7 +470,7 @@ public class JobManager {
         UUID uuid = user.getUniqueId();
 
         if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .select("job")
                     .from("accounts")
                     .where("uid")
@@ -517,7 +517,7 @@ public class JobManager {
 
         if (!jobName.equals("unemployed")) {
             if (databaseEnabled) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .select(jobName)
                         .from("levels")
                         .where("uid")
@@ -550,7 +550,7 @@ public class JobManager {
 
         if (!jobName.equals("unemployed")) {
             if (databaseEnabled) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .select(jobName)
                         .from("experience")
                         .where("uid")
@@ -1085,5 +1085,21 @@ public class JobManager {
                 }
             }
         }
+    }
+
+    public boolean isNotificationEnabled() {
+        return notificationEnabled;
+    }
+
+    public void setNotificationEnabled(boolean notificationEnabled) {
+        this.notificationEnabled = notificationEnabled;
+    }
+
+    public boolean isSalaryEnabled() {
+        return salaryEnabled;
+    }
+
+    public void setSalaryEnabled(boolean salaryEnabled) {
+        this.salaryEnabled = salaryEnabled;
     }
 }

@@ -59,14 +59,16 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class JobCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private JobManager jobManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final JobManager jobManager;
+    private final MessageManager messageManager;
 
     public JobCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        jobManager = TotalEconomy.getJobManager();
-        messageManager = TotalEconomy.getMessageManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        jobManager = totalEconomy.getJobManager();
+        messageManager = totalEconomy.getMessageManager();
     }
 
     public CommandSpec commandSpec() {
@@ -271,10 +273,10 @@ public class JobCommand implements CommandExecutor {
         Optional<Currency> rewardCurrencyOpt = Optional.empty();
 
         if (reward.getCurrencyId() != null) {
-            rewardCurrencyOpt = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + reward.getCurrencyId());
+            rewardCurrencyOpt = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + reward.getCurrencyId());
         }
 
-        return Text.of("(", reward.getExpReward(), " EXP) (", rewardCurrencyOpt.orElse(TotalEconomy.getDefaultCurrency()).format(new BigDecimal(reward.getMoneyReward())), ")");
+        return Text.of("(", reward.getExpReward(), " EXP) (", rewardCurrencyOpt.orElse(totalEconomy.getDefaultCurrency()).format(new BigDecimal(reward.getMoneyReward())), ")");
     }
 
     private class Reload implements CommandExecutor {

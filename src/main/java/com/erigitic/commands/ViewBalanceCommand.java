@@ -52,12 +52,14 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class ViewBalanceCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
 
     public ViewBalanceCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        messageManager = TotalEconomy.getMessageManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
     }
 
     public static CommandSpec commandSpec() {
@@ -102,11 +104,11 @@ public class ViewBalanceCommand implements CommandExecutor {
      */
     private TransactionResult getTransactionResult(TEAccount recipientAccount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(TotalEconomy.getInstance())
+                .append(totalEconomy)
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 TECurrency currency = (TECurrency) optCurrency.get();
@@ -117,9 +119,9 @@ public class ViewBalanceCommand implements CommandExecutor {
                 throw new CommandException(Text.of(TextColors.RED, "[TE] The specified currency does not exist!"));
             }
         } else {
-            BigDecimal balance = recipientAccount.getBalance(TotalEconomy.getDefaultCurrency());
+            BigDecimal balance = recipientAccount.getBalance(totalEconomy.getDefaultCurrency());
 
-            return recipientAccount.setBalance(TotalEconomy.getDefaultCurrency(), balance, cause);
+            return recipientAccount.setBalance(totalEconomy.getDefaultCurrency(), balance, cause);
         }
     }
 }

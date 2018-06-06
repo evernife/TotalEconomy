@@ -49,30 +49,25 @@ import org.spongepowered.api.text.Text;
 
 public class TEAccount implements UniqueAccount {
 
-    private TotalEconomy totalEconomy;
-    private AccountManager accountManager;
-    private UUID uuid;
-    private SqlManager sqlManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final UUID uuid;
+    private final SqlManager sqlManager;
 
-    private boolean databaseActive;
+    private final boolean databaseActive;
 
     /**
      * Constructor for the TEAccount class. Manages a unique account, identified by a {@link UUID}, that contains balances for each {@link Currency}.
      *
-     * @param totalEconomy Main plugin class
-     * @param accountManager {@link AccountManager} object
      * @param uuid The UUID of the account
      */
-    public TEAccount(TotalEconomy totalEconomy, AccountManager accountManager, UUID uuid) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
+    public TEAccount(UUID uuid) {
         this.uuid = uuid;
 
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
         databaseActive = totalEconomy.isDatabaseEnabled();
-
-        if (databaseActive) {
-            sqlManager = totalEconomy.getSqlManager();
-        }
+        sqlManager = (databaseActive ? totalEconomy.getSqlManager() : null);
     }
 
     /**
@@ -106,7 +101,7 @@ public class TEAccount implements UniqueAccount {
         String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
         if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .select(currencyName + "_balance")
                     .from("accounts")
                     .where("uid")
@@ -132,7 +127,7 @@ public class TEAccount implements UniqueAccount {
             String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
             if (databaseActive) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .select(currencyName + "_balance")
                         .from("accounts")
                         .where("uid")
@@ -189,7 +184,7 @@ public class TEAccount implements UniqueAccount {
             TransactionType transactionType = delta.compareTo(BigDecimal.ZERO) >= 0 ? TransactionTypes.DEPOSIT : TransactionTypes.WITHDRAW;
 
             if (databaseActive) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .update("accounts")
                         .set(currencyName + "_balance")
                         .equals(amount.setScale(2, BigDecimal.ROUND_DOWN).toPlainString())

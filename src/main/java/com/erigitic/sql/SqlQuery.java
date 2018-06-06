@@ -33,8 +33,9 @@ import java.util.Optional;
 import javax.sql.DataSource;
 
 public class SqlQuery {
-    private String statement;
-    private DataSource dataSource;
+
+    private final String statement;
+    private final DataSource dataSource;
     private ResultSet resultSet;
     private int rowsAffected = 0;
 

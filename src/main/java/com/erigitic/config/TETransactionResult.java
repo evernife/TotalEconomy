@@ -35,15 +35,15 @@ import org.spongepowered.api.service.economy.transaction.TransactionResult;
 import org.spongepowered.api.service.economy.transaction.TransactionType;
 
 public class TETransactionResult implements TransactionResult {
-    private Account account;
-    private Currency currency;
-    private BigDecimal amount;
-    private Set<Context> contexts;
-    private ResultType resultType;
-    private TransactionType transactionType;
 
-    public TETransactionResult(Account account, Currency currency, BigDecimal amount, Set<Context> contexts,
-                               ResultType resultType, TransactionType transactionType) {
+    private final Account account;
+    private final Currency currency;
+    private final BigDecimal amount;
+    private final Set<Context> contexts;
+    private final ResultType resultType;
+    private final TransactionType transactionType;
+
+    public TETransactionResult(Account account, Currency currency, BigDecimal amount, Set<Context> contexts, ResultType resultType, TransactionType transactionType) {
         this.account = account;
         this.currency = currency;
         this.amount = amount;

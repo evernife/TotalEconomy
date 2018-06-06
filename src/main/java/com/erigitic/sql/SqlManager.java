@@ -26,7 +26,6 @@
 package com.erigitic.sql;
 
 import com.erigitic.main.TotalEconomy;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
@@ -35,20 +34,16 @@ import org.spongepowered.api.Sponge;
 import org.spongepowered.api.service.sql.SqlService;
 
 public class SqlManager {
-    private Logger logger;
-    public DataSource dataSource;
-    private SqlService sql;
 
-    public SqlManager(TotalEconomy totalEconomy, Logger logger) {
-        this.logger = logger;
+    private final TotalEconomy totalEconomy;
+    private final Logger logger;
+    private final DataSource dataSource;
 
-        try {
-            dataSource = getDataSource("jdbc:" + totalEconomy.getDatabaseUrl() + "?user=" + totalEconomy.getDatabaseUser() + "&password=" + totalEconomy.getDatabasePassword());
-        } catch (SQLException e) {
-            logger.warn("Error getting data source!");
-        } catch (UncheckedExecutionException e) {
-            logger.warn("Error connecting to database! Check the config and make sure the database credentials are correct!");
-        }
+    public SqlManager() throws SQLException {
+        totalEconomy = TotalEconomy.getInstance();
+        logger = totalEconomy.getLogger();
+
+        dataSource = getDataSource("jdbc:" + totalEconomy.getDatabaseUrl() + "?user=" + totalEconomy.getDatabaseUser() + "&password=" + totalEconomy.getDatabasePassword());
     }
 
     /**
@@ -56,14 +51,16 @@ public class SqlManager {
      *
      * @param jdbcUrl The JDBC url
      * @return DataSource
-     * @throws SQLException Thrown when there's an exception getting the data source
+     * @throws SQLException Thrown when there's an issue with the jdbc connection
      */
-    public DataSource getDataSource(String jdbcUrl) throws SQLException {
-        if (sql == null) {
-            sql = Sponge.getServiceManager().provide(SqlService.class).get();
-        }
+    private DataSource getDataSource(String jdbcUrl) throws SQLException {
+        SqlService sql = Sponge.getServiceManager().provide(SqlService.class).get();
 
         return sql.getDataSource(jdbcUrl);
+    }
+
+    public DataSource getDataSource() {
+        return dataSource;
     }
 
     /**

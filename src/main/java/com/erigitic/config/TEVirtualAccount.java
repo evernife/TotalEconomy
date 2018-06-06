@@ -48,26 +48,23 @@ import org.spongepowered.api.text.Text;
 
 public class TEVirtualAccount implements VirtualAccount {
 
-    private TotalEconomy totalEconomy;
-    private AccountManager accountManager;
-    private String identifier;
-    private SqlManager sqlManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final String identifier;
+    private final SqlManager sqlManager;
+    private final boolean databaseActive;
 
     private ConfigurationNode accountConfig;
 
-    private boolean databaseActive;
-
-    public TEVirtualAccount(TotalEconomy totalEconomy, AccountManager accountManager, String identifier) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
+    public TEVirtualAccount(String identifier) {
         this.identifier = identifier;
+
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
 
         accountConfig = accountManager.getAccountConfig();
         databaseActive = totalEconomy.isDatabaseEnabled();
-
-        if (databaseActive) {
-            sqlManager = totalEconomy.getSqlManager();
-        }
+        sqlManager = (databaseActive ? totalEconomy.getSqlManager() : null);
     }
 
     @Override
@@ -85,7 +82,7 @@ public class TEVirtualAccount implements VirtualAccount {
         String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
         if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .select(currencyName + "_balance")
                     .from("virtual_accounts")
                     .where("uid")
@@ -104,7 +101,7 @@ public class TEVirtualAccount implements VirtualAccount {
             String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
             if (databaseActive) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .select(currencyName + "_balance")
                         .from("virtual_accounts")
                         .where("uid")
@@ -137,7 +134,7 @@ public class TEVirtualAccount implements VirtualAccount {
             TransactionType transactionType = delta.compareTo(BigDecimal.ZERO) >= 0 ? TransactionTypes.DEPOSIT : TransactionTypes.WITHDRAW;
 
             if (databaseActive) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource)
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .update("virtual_accounts")
                         .set(currencyName + "_balance")
                         .equals(amount.setScale(2, BigDecimal.ROUND_DOWN).toPlainString())

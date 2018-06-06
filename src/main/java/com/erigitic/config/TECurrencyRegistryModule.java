@@ -33,10 +33,10 @@ import org.spongepowered.api.service.economy.Currency;
 
 public class TECurrencyRegistryModule implements CatalogRegistryModule<Currency> {
 
-    private TotalEconomy totalEconomy;
+    private final TotalEconomy totalEconomy;
 
-    public TECurrencyRegistryModule(TotalEconomy totalEconomy) {
-        this.totalEconomy = totalEconomy;
+    public TECurrencyRegistryModule() {
+        totalEconomy = TotalEconomy.getInstance();
     }
 
     @Override

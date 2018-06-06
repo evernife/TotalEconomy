@@ -70,14 +70,16 @@ import org.spongepowered.api.text.format.TextStyles;
 
 public class ShopCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private ShopManager shopManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final ShopManager shopManager;
+    private final MessageManager messageManager;
 
     public ShopCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        shopManager = TotalEconomy.getShopManager();
-        messageManager = TotalEconomy.getMessageManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        shopManager = totalEconomy.getShopManager();
+        messageManager = totalEconomy.getMessageManager();
     }
 
     public CommandSpec getCommandSpec() {
@@ -166,7 +168,7 @@ public class ShopCommand implements CommandExecutor {
                                     Map<String, String> messageValues = new HashMap<>();
                                     messageValues.put("quantity", String.valueOf(quantity));
                                     messageValues.put("item", preparedItem.get(Keys.DISPLAY_NAME).orElse(Text.of(preparedItem.getTranslation())).toPlain());
-                                    messageValues.put("price", TotalEconomy.getDefaultCurrency().format(BigDecimal.valueOf(price), 2).toPlain());
+                                    messageValues.put("price", totalEconomy.getDefaultCurrency().format(BigDecimal.valueOf(price), 2).toPlain());
 
                                     player.sendMessage(messageManager.getMessage("command.shop.stock.success", messageValues));
                                 } else {
@@ -198,7 +200,7 @@ public class ShopCommand implements CommandExecutor {
             ItemStack preparedItem = itemStack.copy();
 
             preparedItem.setQuantity(quantity);
-            preparedItem.offer(Keys.ITEM_LORE, shopItem.getLore(TotalEconomy.getDefaultCurrency()));
+            preparedItem.offer(Keys.ITEM_LORE, shopItem.getLore(totalEconomy.getDefaultCurrency()));
             preparedItem.offer(new ShopItemData(shopItem));
 
             return preparedItem;
@@ -258,11 +260,11 @@ public class ShopCommand implements CommandExecutor {
 
                                     Cause cause = Cause.builder()
                                             .append(player)
-                                            .append(TotalEconomy.getInstance())
+                                            .append(totalEconomy)
                                             .build(EventContext.empty());
 
                                     TransactionResult transactionResult = account.withdraw(
-                                            TotalEconomy.getDefaultCurrency(),
+                                            totalEconomy.getDefaultCurrency(),
                                             BigDecimal.valueOf(shopManager.getChestShopPrice()),
                                             cause
                                     );
@@ -276,7 +278,7 @@ public class ShopCommand implements CommandExecutor {
                                         player.sendMessage(messageManager.getMessage("command.shop.buy.success"));
                                     } else {
                                         Map<String, String> messageValues = new HashMap<>();
-                                        messageValues.put("price", TotalEconomy.getDefaultCurrency().format(BigDecimal.valueOf(shopManager.getChestShopPrice())).toPlain());
+                                        messageValues.put("price", totalEconomy.getDefaultCurrency().format(BigDecimal.valueOf(shopManager.getChestShopPrice())).toPlain());
 
                                         throw new CommandException(messageManager.getMessage("command.shop.buy.insufficientfunds", messageValues));
                                     }

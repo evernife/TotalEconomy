@@ -56,10 +56,12 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class BalanceTopCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
 
     public BalanceTopCommand() {
-        accountManager = TotalEconomy.getAccountManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
     }
 
     public static CommandSpec commandSpec() {
@@ -82,18 +84,18 @@ public class BalanceTopCommand implements CommandExecutor {
         List<Text> accountBalances = new ArrayList<>();
 
         if (optCurrency.isPresent()) {
-            currency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
+            currency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
         }
 
         if (currency == null) {
-            currency = TotalEconomy.getDefaultCurrency();
+            currency = totalEconomy.getDefaultCurrency();
         }
 
         final Currency fCurrency = currency;
 
-        if (TotalEconomy.isDatabaseEnabled()) {
+        if (totalEconomy.isDatabaseEnabled()) {
             try {
-                Statement statement = TotalEconomy.getSqlManager().dataSource.getConnection().createStatement();
+                Statement statement = totalEconomy.getSqlManager().getDataSource().getConnection().createStatement();
                 String currencyColumn = currency.getName() + "_balance";
                 statement.execute("SELECT * FROM accounts ORDER BY `" + currencyColumn + "` DESC LIMIT 10");
                 ResultSet set = statement.getResultSet();

@@ -53,14 +53,16 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class SetBalanceCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private MessageManager messageManager;
-    private Currency defaultCurrency;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
+    private final Currency defaultCurrency;
 
     public SetBalanceCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        messageManager = TotalEconomy.getMessageManager();
-        defaultCurrency = TotalEconomy.getDefaultCurrency();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
+        defaultCurrency = totalEconomy.getDefaultCurrency();
     }
 
     public static CommandSpec commandSpec() {
@@ -116,11 +118,11 @@ public class SetBalanceCommand implements CommandExecutor {
      */
     private TransactionResult getTransactionResult(TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(TotalEconomy.getInstance())
+                .append(totalEconomy)
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 return recipientAccount.setBalance(optCurrency.get(), amount, cause);

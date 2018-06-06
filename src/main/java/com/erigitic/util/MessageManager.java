@@ -43,19 +43,22 @@ import org.spongepowered.api.text.serializer.TextSerializers;
 
 public class MessageManager {
 
-    private TotalEconomy totalEconomy;
-    private Logger logger;
+    private final TotalEconomy totalEconomy;
+    private final Logger logger;
+    private final Locale locale;
+
     private ConfigurationNode messagesConfig;
-    private Locale locale;
 
     /**
      * Grabs a message from the messages_[lang].conf file and converts it to a usable String/Text object ready for printing. Colors
      * are changed, and value placeholders are changed to their corresponding values which are passed in.
      */
-    public MessageManager(TotalEconomy totalEconomy, Logger logger, Locale locale) {
-        this.totalEconomy = totalEconomy;
-        this.logger = logger;
+    public MessageManager(Locale locale) {
         this.locale = locale;
+
+        totalEconomy = TotalEconomy.getInstance();
+        logger = totalEconomy.getLogger();
+
 
         setupConfig(locale);
     }

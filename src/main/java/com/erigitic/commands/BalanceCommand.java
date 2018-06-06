@@ -47,14 +47,17 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class BalanceCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private MessageManager messageManager;
-    private Currency defaultCurrency;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
+    private final Currency defaultCurrency;
 
     public BalanceCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        messageManager = TotalEconomy.getMessageManager();
-        defaultCurrency = TotalEconomy.getDefaultCurrency();
+        totalEconomy = TotalEconomy.getInstance();
+
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
+        defaultCurrency = totalEconomy.getDefaultCurrency();
     }
 
     public static CommandSpec commandSpec() {
@@ -75,7 +78,7 @@ public class BalanceCommand implements CommandExecutor {
             Map<String, String> messageValues = new HashMap<>();
 
             if (optCurrencyName.isPresent()) {
-                Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+                Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
                 if (optCurrency.isPresent()) {
                     TECurrency currency = (TECurrency) optCurrency.get();

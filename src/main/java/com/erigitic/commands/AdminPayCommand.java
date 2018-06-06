@@ -53,12 +53,14 @@ import org.spongepowered.api.text.format.TextColors;
 
 public class AdminPayCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
 
     public AdminPayCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        messageManager = TotalEconomy.getMessageManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
     }
 
     public static CommandSpec commandSpec() {
@@ -127,11 +129,11 @@ public class AdminPayCommand implements CommandExecutor {
      */
     private TransactionResult getTransactionResult(TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(TotalEconomy.getInstance())
+                .append(totalEconomy)
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 return recipientAccount.deposit(optCurrency.get(), amount, cause);
@@ -139,7 +141,7 @@ public class AdminPayCommand implements CommandExecutor {
                 throw new CommandException(Text.of(TextColors.RED, "[TE] The specified currency does not exist!"));
             }
         } else {
-            return recipientAccount.deposit(TotalEconomy.getDefaultCurrency(), amount, cause);
+            return recipientAccount.deposit(totalEconomy.getDefaultCurrency(), amount, cause);
         }
     }
 }

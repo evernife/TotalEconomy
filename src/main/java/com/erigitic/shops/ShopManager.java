@@ -70,22 +70,22 @@ import org.spongepowered.api.world.World;
 
 public class ShopManager {
 
-    private TotalEconomy totalEconomy;
-    private AccountManager accountManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
 
     private final double minPrice;
     private final double maxPrice;
     private final double chestShopPrice;
 
-    public ShopManager(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
-        this.totalEconomy = totalEconomy;
-        this.accountManager = accountManager;
-        this.messageManager = messageManager;
+    public ShopManager() {
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
 
-        minPrice = this.totalEconomy.getShopNode().getNode("min-item-price").getDouble(0);
-        maxPrice = this.totalEconomy.getShopNode().getNode("max-item-price").getDouble(1000000000);
-        chestShopPrice = this.totalEconomy.getShopNode().getNode("chestshop", "price").getDouble(1000);
+        minPrice = totalEconomy.getShopNode().getNode("min-item-price").getDouble(0);
+        maxPrice = totalEconomy.getShopNode().getNode("max-item-price").getDouble(1000000000);
+        chestShopPrice = totalEconomy.getShopNode().getNode("chestshop", "price").getDouble(1000);
     }
 
     /**

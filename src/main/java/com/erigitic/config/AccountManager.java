@@ -29,19 +29,16 @@ import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.sql.SqlQuery;
 import com.erigitic.util.MessageManager;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
-
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.entity.living.player.Player;
@@ -55,15 +52,16 @@ import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 
 public class AccountManager implements EconomyService {
-    private TotalEconomy totalEconomy;
-    private MessageManager messageManager;
-    private Logger logger;
+
+    private final MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final Logger logger;
+    private final SqlManager sqlManager;
+
     private ConfigurationLoader<CommentedConfigurationNode> loader;
     private ConfigurationNode accountConfig;
 
-    private SqlManager sqlManager;
-
-    private boolean databaseActive;
+    private final boolean databaseActive;
 
     private boolean confSaveRequested = false;
 
@@ -72,21 +70,21 @@ public class AccountManager implements EconomyService {
     /**
      * Constructor for the AccountManager class. Handles the initialization of necessary variables, setup of the database
      * or configuration files depending on main configuration value, and starts save script if setup.
-     *
-     * @param totalEconomy Main plugin class
      */
-    public AccountManager(TotalEconomy totalEconomy, MessageManager messageManager, Logger logger) {
-        this.totalEconomy = totalEconomy;
+    public AccountManager(MessageManager messageManager) {
         this.messageManager = messageManager;
-        this.logger = logger;
+
+        totalEconomy = TotalEconomy.getInstance();
+        logger = totalEconomy.getLogger();
 
         databaseActive = totalEconomy.isDatabaseEnabled();
-
         if (databaseActive) {
             sqlManager = totalEconomy.getSqlManager();
 
             setupDatabase();
         } else {
+            sqlManager = null;
+
             setupConfig();
 
             if (totalEconomy.getSaveInterval() > 0) {
@@ -211,7 +209,7 @@ public class AccountManager implements EconomyService {
      */
     @Override
     public Optional<UniqueAccount> getOrCreateAccount(UUID uuid) {
-        TEAccount playerAccount = new TEAccount(totalEconomy, this, uuid);
+        TEAccount playerAccount = new TEAccount(uuid);
         boolean hasAccount = hasAccount(uuid);
 
         try {
@@ -239,7 +237,7 @@ public class AccountManager implements EconomyService {
      */
     @Override
     public Optional<Account> getOrCreateAccount(String identifier) {
-        TEVirtualAccount virtualAccount = new TEVirtualAccount(totalEconomy, this, identifier);
+        TEVirtualAccount virtualAccount = new TEVirtualAccount(identifier);
         boolean hasAccount = hasAccount(identifier);
 
         try {
@@ -268,7 +266,7 @@ public class AccountManager implements EconomyService {
     @Override
     public boolean hasAccount(UUID uuid) {
         if (databaseActive) {
-            SqlQuery query = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery query = SqlQuery.builder(sqlManager.getDataSource())
                     .select("uid")
                     .from("accounts")
                     .where("uid")
@@ -290,7 +288,7 @@ public class AccountManager implements EconomyService {
     @Override
     public boolean hasAccount(String identifier) {
         if (databaseActive) {
-            SqlQuery query = SqlQuery.builder(sqlManager.dataSource)
+            SqlQuery query = SqlQuery.builder(sqlManager.getDataSource())
                     .select("uid")
                     .from("virtual_accounts")
                     .where("uid")
@@ -337,17 +335,17 @@ public class AccountManager implements EconomyService {
     private void createAccountInDatabase(TEAccount playerAccount) {
         UUID uuid = playerAccount.getUniqueId();
 
-        SqlQuery.builder(sqlManager.dataSource).insert("accounts")
+        SqlQuery.builder(sqlManager.getDataSource()).insert("accounts")
                 .columns("uid", "job", "job_notifications")
-                .values(uuid.toString(), "unemployed", String.valueOf(totalEconomy.isJobNotificationEnabled()))
+                .values(uuid.toString(), "unemployed", String.valueOf(totalEconomy.getJobManager().isNotificationEnabled()))
                 .build();
 
-        SqlQuery.builder(sqlManager.dataSource).insert("levels")
+        SqlQuery.builder(sqlManager.getDataSource()).insert("levels")
                 .columns("uid")
                 .values(uuid.toString())
                 .build();
 
-        SqlQuery.builder(sqlManager.dataSource).insert("experience")
+        SqlQuery.builder(sqlManager.getDataSource()).insert("experience")
                 .columns("uid")
                 .values(uuid.toString())
                 .build();
@@ -355,7 +353,7 @@ public class AccountManager implements EconomyService {
         for (Currency currency : totalEconomy.getCurrencies()) {
             TECurrency teCurrency = (TECurrency) currency;
 
-            SqlQuery.builder(sqlManager.dataSource).update("accounts")
+            SqlQuery.builder(sqlManager.getDataSource()).update("accounts")
                     .set(teCurrency.getName().toLowerCase() + "_balance")
                     .equals(playerAccount.getDefaultBalance(teCurrency).toString())
                     .where("uid")
@@ -375,7 +373,7 @@ public class AccountManager implements EconomyService {
         for (Currency currency : totalEconomy.getCurrencies()) {
             TECurrency teCurrency = (TECurrency) currency;
 
-            SqlQuery.builder(sqlManager.dataSource).insert("virtual_accounts")
+            SqlQuery.builder(sqlManager.getDataSource()).insert("virtual_accounts")
                     .columns(teCurrency.getName().toLowerCase() + "_balance")
                     .values(virtualAccount.getDefaultBalance(teCurrency).toString())
                     .where("uid")
@@ -400,7 +398,7 @@ public class AccountManager implements EconomyService {
         }
 
         accountConfig.getNode(uuid.toString(), "job").setValue("unemployed");
-        accountConfig.getNode(uuid.toString(), "jobnotifications").setValue(totalEconomy.isJobNotificationEnabled());
+        accountConfig.getNode(uuid.toString(), "jobnotifications").setValue(totalEconomy.getJobManager().isNotificationEnabled());
         loader.save(accountConfig);
     }
 
@@ -474,7 +472,7 @@ public class AccountManager implements EconomyService {
         UUID playerUniqueId = player.getUniqueId();
 
         if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource).select("job_notifications")
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).select("job_notifications")
                     .from("accounts")
                     .where("uid")
                     .equals(playerUniqueId.toString())
@@ -496,7 +494,7 @@ public class AccountManager implements EconomyService {
         UUID playerUniqueId = player.getUniqueId();
 
         if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.dataSource).update("accounts")
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).update("accounts")
                     .set("job_notifications")
                     .equals(jobNotifications ? "1" : "0")
                     .where("uid")

@@ -53,12 +53,14 @@ import org.spongepowered.api.text.Text;
 
 public class PayCommand implements CommandExecutor {
 
-    private AccountManager accountManager;
-    private MessageManager messageManager;
+    private final TotalEconomy totalEconomy;
+    private final AccountManager accountManager;
+    private final MessageManager messageManager;
 
     public PayCommand() {
-        accountManager = TotalEconomy.getAccountManager();
-        messageManager = TotalEconomy.getMessageManager();
+        totalEconomy = TotalEconomy.getInstance();
+        accountManager = totalEconomy.getAccountManager();
+        messageManager = totalEconomy.getMessageManager();
     }
 
     public static CommandSpec commandSpec() {
@@ -122,11 +124,11 @@ public class PayCommand implements CommandExecutor {
 
     private TransferResult getTransferResult(TEAccount senderAccount, TEAccount recipientAccount, BigDecimal amount, Optional<String> optCurrencyName) throws CommandException {
         Cause cause = Cause.builder()
-                .append(TotalEconomy.getInstance())
+                .append(totalEconomy)
                 .build(EventContext.empty());
 
         if (optCurrencyName.isPresent()) {
-            Optional<Currency> optCurrency = TotalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
+            Optional<Currency> optCurrency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrencyName.get().toLowerCase());
 
             if (optCurrency.isPresent()) {
                 TECurrency teCurrency = (TECurrency) optCurrency.get();
@@ -140,7 +142,7 @@ public class PayCommand implements CommandExecutor {
                 throw new CommandException(Text.of("[TE] The specified currency does not exist!"));
             }
         } else {
-            return senderAccount.transfer(recipientAccount, TotalEconomy.getDefaultCurrency(), amount, cause);
+            return senderAccount.transfer(recipientAccount, totalEconomy.getDefaultCurrency(), amount, cause);
         }
     }
 }
