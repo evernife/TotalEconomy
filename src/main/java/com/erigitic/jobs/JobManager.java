@@ -92,12 +92,12 @@ public class JobManager {
     private File jobSetsFile;
     private ConfigurationLoader<CommentedConfigurationNode> jobSetsLoader;
     private ConfigurationNode jobSetsConfig;
-    private Map<String, TEJobSet> jobSets;
+    private Map<String, JobSet> jobSets;
 
     private File jobsFile;
     private ConfigurationLoader<CommentedConfigurationNode> jobsLoader;
     private ConfigurationNode jobsConfig;
-    private Map<String, TEJob> jobsMap;
+    private Map<String, Job> jobsMap;
 
     private boolean notificationEnabled = true;
     private boolean salaryEnabled = true;
@@ -125,7 +125,7 @@ public class JobManager {
         payTask.execute(() -> {
             if (totalEconomy.getGame().isServerAvailable()) {
                 for (Player player : totalEconomy.getServer().getOnlinePlayers()) {
-                    Optional<TEJob> optJob = getJob(getPlayerJob(player), true);
+                    Optional<Job> optJob = getJob(getPlayerJob(player), true);
 
                     if (!optJob.isPresent()) {
                         player.sendMessage(Text.of(TextColors.RED, "[TE] Cannot pay your salary! Contact your administrator!"));
@@ -194,7 +194,7 @@ public class JobManager {
 
             sets.getChildrenMap().forEach((setName, setNode) -> {
                 if (setNode != null) {
-                    TEJobSet jobSet = new TEJobSet(setNode);
+                    JobSet jobSet = new JobSet(setNode);
 
                     jobSets.put((String) setName, jobSet);
                 }
@@ -227,10 +227,10 @@ public class JobManager {
             jobsConfig = jobsLoader.load();
             ConfigurationNode jobsNode = jobsConfig.getNode("jobs");
 
-            // Loop through each job node in the configuration file, create a TEJob object from it, and store in a HashMap
+            // Loop through each job node in the configuration file, create a Job object from it, and store in a HashMap
             jobsNode.getChildrenMap().forEach((k, jobNode) -> {
                 if (jobNode != null) {
-                    TEJob job = new TEJob(jobNode);
+                    Job job = new Job(jobNode);
 
                     if (job.isValid()) {
                         jobsMap.put(job.getName(), job);
@@ -456,7 +456,7 @@ public class JobManager {
      *
      * @return Optional
      */
-    public Optional<TEJobSet> getJobSet(String name) {
+    public Optional<JobSet> getJobSet(String name) {
         return Optional.ofNullable(jobSets.getOrDefault(name, null));
     }
 
@@ -486,14 +486,14 @@ public class JobManager {
     }
 
     /**
-     * Get a TEJob object by a job name.
+     * Get a Job object by a job name.
      *
      * @param jobName Name of the job
      * @param tryUnemployed Whether or not to try returning the unemployed job when the job wasn't found
-     * @return {@link TEJob} the job; {@code null} for not found
+     * @return {@link Job} the job; {@code null} for not found
      */
-    public Optional<TEJob> getJob(String jobName, boolean tryUnemployed) {
-        TEJob job = jobsMap.getOrDefault(jobName, null);
+    public Optional<Job> getJob(String jobName, boolean tryUnemployed) {
+        Job job = jobsMap.getOrDefault(jobName, null);
 
         if (job != null || !tryUnemployed) {
             return Optional.ofNullable(job);
@@ -664,7 +664,7 @@ public class JobManager {
                                 Map<String, String> messageValues = new HashMap<>();
                                 messageValues.put("job", titleize(jobName));
                                 
-                                Optional<TEJob> optJob = getJob(jobName, false);
+                                Optional<Job> optJob = getJob(jobName, false);
 
                                 if (optJob.isPresent()) {
                                     Optional<JobBasedRequirement> optRequire = optJob.get().getRequirement();
@@ -718,7 +718,7 @@ public class JobManager {
             UUID playerUniqueId = player.getUniqueId();
 
             String playerJob = getPlayerJob(player);
-            Optional<TEJob> optPlayerJob = getJob(playerJob, true);
+            Optional<Job> optPlayerJob = getJob(playerJob, true);
 
             BlockState state = event.getTransactions().get(0).getOriginal().getState();
             String blockName = state.getType().getName();
@@ -741,22 +741,22 @@ public class JobManager {
             }
 
             if (optPlayerJob.isPresent()) {
-                Optional<TEActionReward> reward = Optional.empty();
+                Optional<JobActionReward> reward = Optional.empty();
                 List<String> sets = optPlayerJob.get().getSets();
 
                 for (String s : sets) {
-                    Optional<TEJobSet> optSet = getJobSet(s);
+                    Optional<JobSet> optSet = getJobSet(s);
                     if (!optSet.isPresent()) {
                         logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
                         continue;
                     }
 
-                    Optional<TEAction> action = optSet.get().getActionFor("break", blockName);
+                    Optional<JobAction> action = optSet.get().getActionFor("break", blockName);
                     if (!action.isPresent()) {
                         continue;
                     }
 
-                    Optional<TEActionReward> currentReward = action.get().evaluateBreak(logger, state, blockCreator.orElse(null));
+                    Optional<JobActionReward> currentReward = action.get().evaluateBreak(logger, state, blockCreator.orElse(null));
                     if (!reward.isPresent()) {
                         reward = currentReward;
                         continue;
@@ -813,7 +813,7 @@ public class JobManager {
             UUID playerUniqueId = player.getUniqueId();
 
             String playerJob = getPlayerJob(player);
-            Optional<TEJob> optPlayerJob = getJob(playerJob, true);
+            Optional<Job> optPlayerJob = getJob(playerJob, true);
 
             BlockState state = event.getTransactions().get(0).getFinal().getState();
             String blockName = state.getType().getName();
@@ -835,22 +835,22 @@ public class JobManager {
             }
 
             if (optPlayerJob.isPresent()) {
-                Optional<TEActionReward> reward = Optional.empty();
+                Optional<JobActionReward> reward = Optional.empty();
                 List<String> sets = optPlayerJob.get().getSets();
 
                 for (String s : sets) {
-                    Optional<TEJobSet> optSet = getJobSet(s);
+                    Optional<JobSet> optSet = getJobSet(s);
                     if (!optSet.isPresent()) {
                         logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
                         continue;
                     }
 
-                    Optional<TEAction> action = optSet.get().getActionFor("place", blockName);
+                    Optional<JobAction> action = optSet.get().getActionFor("place", blockName);
                     if (!action.isPresent()) {
                         continue;
                     }
 
-                    Optional<TEActionReward> currentReward = action.get().evaluatePlace(logger, state);
+                    Optional<JobActionReward> currentReward = action.get().evaluatePlace(logger, state);
                     if (!reward.isPresent()) {
                         reward = currentReward;
                         continue;
@@ -925,7 +925,7 @@ public class JobManager {
                 String victimName = victim.getType().getName();
 
                 String playerJob = getPlayerJob(player);
-                Optional<TEJob> optPlayerJob = getJob(playerJob, true);
+                Optional<Job> optPlayerJob = getJob(playerJob, true);
 
                 // Enable admins to determine victim information by displaying it to them - WHEN they have the flag enabled
                 if (accountManager.getUserOption("totaleconomy:entity-kill-info", player).orElse("0").equals("1")) {
@@ -933,22 +933,22 @@ public class JobManager {
                 }
 
                 if (optPlayerJob.isPresent()) {
-                    Optional<TEActionReward> reward = Optional.empty();
+                    Optional<JobActionReward> reward = Optional.empty();
                     List<String> sets = optPlayerJob.get().getSets();
 
                     for (String s : sets) {
-                        Optional<TEJobSet> optSet = getJobSet(s);
+                        Optional<JobSet> optSet = getJobSet(s);
                         if (!optSet.isPresent()) {
                             logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
                             continue;
                         }
 
-                        Optional<TEAction> action = optSet.get().getActionFor("kill", victimName);
+                        Optional<JobAction> action = optSet.get().getActionFor("kill", victimName);
                         if (!action.isPresent()) {
                             continue;
                         }
 
-                        Optional<TEActionReward> currentReward = action.get().getReward();
+                        Optional<JobActionReward> currentReward = action.get().getReward();
                         if (!reward.isPresent()) {
                             reward = currentReward;
                             continue;
@@ -1014,7 +1014,7 @@ public class JobManager {
             UUID playerUniqueId = player.getUniqueId();
 
             String playerJob = getPlayerJob(player);
-            Optional<TEJob> optPlayerJob = getJob(playerJob, true);
+            Optional<Job> optPlayerJob = getJob(playerJob, true);
 
             if (optPlayerJob.isPresent()) {
                 if (itemStack.get(FishData.class).isPresent()) {
@@ -1026,23 +1026,23 @@ public class JobManager {
                         player.sendMessage(Text.of("Fish-Name: ", fishName));
                     }
 
-                    Optional<TEActionReward> reward = Optional.empty();
+                    Optional<JobActionReward> reward = Optional.empty();
                     List<String> sets = optPlayerJob.get().getSets();
 
                     for (String s : sets) {
-                        Optional<TEJobSet> optSet = getJobSet(s);
+                        Optional<JobSet> optSet = getJobSet(s);
 
                         if (!optSet.isPresent()) {
                             logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
                             continue;
                         }
 
-                        Optional<TEAction> action = optSet.get().getActionFor("catch", fishName);
+                        Optional<JobAction> action = optSet.get().getActionFor("catch", fishName);
                         if (!action.isPresent()) {
                             continue;
                         }
 
-                        Optional<TEActionReward> currentReward = action.get().getReward();
+                        Optional<JobActionReward> currentReward = action.get().getReward();
                         if (!reward.isPresent()) {
                             reward = currentReward;
                             continue;

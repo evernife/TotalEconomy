@@ -26,12 +26,12 @@
 package com.erigitic.commands;
 
 import com.erigitic.config.AccountManager;
+import com.erigitic.jobs.Job;
 import com.erigitic.jobs.JobBasedRequirement;
 import com.erigitic.jobs.JobManager;
-import com.erigitic.jobs.TEAction;
-import com.erigitic.jobs.TEActionReward;
-import com.erigitic.jobs.TEJob;
-import com.erigitic.jobs.TEJobSet;
+import com.erigitic.jobs.JobAction;
+import com.erigitic.jobs.JobActionReward;
+import com.erigitic.jobs.JobSet;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.util.MessageManager;
 import java.math.BigDecimal;
@@ -145,12 +145,12 @@ public class JobCommand implements CommandExecutor {
                 return CommandResult.empty();
             }
 
-            Optional<TEJob> optJob = jobManager.getJob(jobName, false);
+            Optional<Job> optJob = jobManager.getJob(jobName, false);
             if (!optJob.isPresent()) {
                 throw new CommandException(Text.of("Job " + jobName + " does not exist!"));
             }
 
-            TEJob job = optJob.get();
+            Job job = optJob.get();
             if (job.getRequirement().isPresent()) {
                 JobBasedRequirement req = job.getRequirement().get();
 
@@ -203,7 +203,7 @@ public class JobCommand implements CommandExecutor {
         @Override
         public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
             Optional<String> optJobName = args.getOne("jobName");
-            Optional<TEJob> optJob = Optional.empty();
+            Optional<Job> optJob = Optional.empty();
             boolean extended = args.hasAny("e");
 
             if (!optJobName.isPresent() && (src instanceof Player)) {
@@ -221,12 +221,12 @@ public class JobCommand implements CommandExecutor {
             List<Text> lines = new ArrayList();
 
             for (String s : optJob.get().getSets()) {
-                Optional<TEJobSet> optSet = jobManager.getJobSet(s);
+                Optional<JobSet> optSet = jobManager.getJobSet(s);
 
                 if (optSet.isPresent()) {
-                    TEJobSet jobSet = optSet.get();
+                    JobSet jobSet = optSet.get();
 
-                    for (TEAction action : jobSet.getActions()) {
+                    for (JobAction action : jobSet.getActions()) {
                         Text listText;
 
                         if (action.isIdTraited()) {
@@ -269,7 +269,7 @@ public class JobCommand implements CommandExecutor {
         }
     }
 
-    private Text formatReward(TEActionReward reward) {
+    private Text formatReward(JobActionReward reward) {
         Optional<Currency> rewardCurrencyOpt = Optional.empty();
 
         if (reward.getCurrencyId() != null) {

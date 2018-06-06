@@ -33,14 +33,14 @@ import java.util.Optional;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 
-public class TEJob {
+public class Job {
     private String name;
     private BigDecimal salary;
     private List<String> sets = new ArrayList<>();
     private JobBasedRequirement requirement;
     private boolean isValid;
 
-    public TEJob(ConfigurationNode node) {
+    public Job(ConfigurationNode node) {
         name = node.getKey().toString();
         salary = new BigDecimal(node.getNode("salary").getString());
 

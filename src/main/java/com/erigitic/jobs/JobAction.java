@@ -37,16 +37,16 @@ import org.slf4j.Logger;
 import org.spongepowered.api.block.BlockState;
 import org.spongepowered.api.block.trait.BlockTrait;
 
-public class TEAction {
+public class JobAction {
 
     private String action;
     private String targetId;
 
     private String growthTrait = null;
     private String idTrait = null;
-    private Map<String, TEActionReward> rewards = new HashMap<>();
+    private Map<String, JobActionReward> rewards = new HashMap<>();
 
-    private TEActionReward reward;
+    private JobActionReward reward;
 
     public void loadConfigNode(String action, ConfigurationNode node) {
         ConfigurationNode idTraitNode = node.getNode("id-trait");
@@ -55,7 +55,7 @@ public class TEAction {
         if (idTraitNode.isVirtual()) {
             this.action = action;
             this.targetId = node.getKey().toString();
-            this.reward = new TEActionReward();
+            this.reward = new JobActionReward();
             this.reward.loadConfigNode(node);
             this.growthTrait = growthTraitNode.getString(null);
             return;
@@ -72,7 +72,7 @@ public class TEAction {
                     return;
                 }
 
-                TEActionReward reward = new TEActionReward();
+                JobActionReward reward = new JobActionReward();
                 reward.loadConfigNode(v);
                 rewards.put(((String) k), reward);
             });
@@ -84,7 +84,7 @@ public class TEAction {
         this.growthTrait = growthTraitNode.getString(null);
     }
 
-    public Optional<TEActionReward> evaluateBreak(Logger logger, BlockState state, UUID blockCreator) {
+    public Optional<JobActionReward> evaluateBreak(Logger logger, BlockState state, UUID blockCreator) {
         // Disqualifying checks first for performance
         if (!state.getType().getId().equals(this.targetId)) {
             return Optional.empty();
@@ -96,7 +96,7 @@ public class TEAction {
         }
 
         // Determine base reward. Use complicated way if this block has an ID trait
-        TEActionReward reward = null;
+        JobActionReward reward = null;
 
         if (idTrait != null) {
             Optional<BlockTrait<?>> trait = state.getTrait(idTrait);
@@ -144,25 +144,25 @@ public class TEAction {
         return Optional.ofNullable(reward);
     }
 
-    private TEActionReward generateReward(Integer traitValue, Collection<Integer> possibleValues) {
+    private JobActionReward generateReward(Integer traitValue, Collection<Integer> possibleValues) {
         int max = possibleValues.stream().max(Comparator.comparingInt(Integer::intValue)).orElse(0);
         int min = possibleValues.stream().min(Comparator.comparingInt(Integer::intValue)).orElse(0);
         double percent = (double) (traitValue - min) / (double) (max - min);
 
-        reward = new TEActionReward();
+        reward = new JobActionReward();
         reward.setValues((int) (reward.getExpReward() * percent), reward.getMoneyReward() * percent, reward.getCurrencyId());
 
         return reward;
     }
 
-    public Optional<TEActionReward> evaluatePlace(Logger logger, BlockState state) {
+    public Optional<JobActionReward> evaluatePlace(Logger logger, BlockState state) {
         // Disqualifying checks first for performance
         if (!state.getType().getId().equals(this.targetId)) {
             return Optional.empty();
         }
 
         // Determine base reward. Use complicated way if this block has an ID trait
-        TEActionReward reward = null;
+        JobActionReward reward = null;
 
         if (idTrait != null) {
             Optional<BlockTrait<?>> trait = state.getTrait(idTrait);
@@ -211,11 +211,11 @@ public class TEAction {
         return targetId;
     }
 
-    public Optional<TEActionReward> getReward() {
+    public Optional<JobActionReward> getReward() {
         return Optional.ofNullable(reward);
     }
 
-    public Map<String, TEActionReward> getRewards() {
+    public Map<String, JobActionReward> getRewards() {
         return rewards;
     }
 }

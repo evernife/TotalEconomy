@@ -25,39 +25,35 @@
 
 package com.erigitic.jobs;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 import ninja.leaping.configurate.ConfigurationNode;
 
-public class TEJobSet {
-    private List<TEAction> actions = new ArrayList();
+public class JobActionReward {
 
-    public TEJobSet(ConfigurationNode node) {
-        node.getChildrenMap().forEach((actionStr, targetNode) -> {
-            if ((actionStr instanceof String) &&  targetNode != null) {
-                targetNode.getChildrenMap().forEach((targetID, actionNode) -> {
-                    if ((targetID instanceof String) && actionNode != null) {
-                        TEAction action = new TEAction();
-                        action.loadConfigNode((String) actionStr, actionNode);
+    private int expReward;
+    private double moneyReward;
+    private String currencyId;
 
-                        if (action.isValid()) {
-                            actions.add(action);
-                        }
-                    }
-                });
-            }
-        });
+    public void loadConfigNode(ConfigurationNode node) {
+        this.expReward = node.getNode("exp").getInt(0);
+        this.moneyReward = node.getNode("money").getDouble(0.00d);
+        this.currencyId = node.getNode("currency").getString(null);
     }
 
-    public Optional<TEAction> getActionFor(String action, String targetID) {
-        return actions.stream()
-                .filter(teAction -> teAction.getAction().equals(action))
-                .filter(teAction -> teAction.getTargetId().equals(targetID))
-                .findFirst();
+    public void setValues(Integer expReward, Double moneyReward, String currencyID) {
+        this.expReward = expReward;
+        this.moneyReward = moneyReward;
+        this.currencyId = currencyID;
     }
 
-    public List<TEAction> getActions() {
-        return actions;
+    public Integer getExpReward() {
+        return expReward;
+    }
+
+    public Double getMoneyReward() {
+        return moneyReward;
+    }
+
+    public String getCurrencyId() {
+        return currencyId;
     }
 }

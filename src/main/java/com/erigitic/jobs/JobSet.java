@@ -25,35 +25,39 @@
 
 package com.erigitic.jobs;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import ninja.leaping.configurate.ConfigurationNode;
 
-public class TEActionReward {
+public class JobSet {
+    private List<JobAction> actions = new ArrayList();
 
-    private int expReward;
-    private double moneyReward;
-    private String currencyId;
+    public JobSet(ConfigurationNode node) {
+        node.getChildrenMap().forEach((actionStr, targetNode) -> {
+            if ((actionStr instanceof String) &&  targetNode != null) {
+                targetNode.getChildrenMap().forEach((targetID, actionNode) -> {
+                    if ((targetID instanceof String) && actionNode != null) {
+                        JobAction action = new JobAction();
+                        action.loadConfigNode((String) actionStr, actionNode);
 
-    public void loadConfigNode(ConfigurationNode node) {
-        this.expReward = node.getNode("exp").getInt(0);
-        this.moneyReward = node.getNode("money").getDouble(0.00d);
-        this.currencyId = node.getNode("currency").getString(null);
+                        if (action.isValid()) {
+                            actions.add(action);
+                        }
+                    }
+                });
+            }
+        });
     }
 
-    public void setValues(Integer expReward, Double moneyReward, String currencyID) {
-        this.expReward = expReward;
-        this.moneyReward = moneyReward;
-        this.currencyId = currencyID;
+    public Optional<JobAction> getActionFor(String action, String targetID) {
+        return actions.stream()
+                .filter(jobAction -> jobAction.getAction().equals(action))
+                .filter(jobAction -> jobAction.getTargetId().equals(targetID))
+                .findFirst();
     }
 
-    public Integer getExpReward() {
-        return expReward;
-    }
-
-    public Double getMoneyReward() {
-        return moneyReward;
-    }
-
-    public String getCurrencyId() {
-        return currencyId;
+    public List<JobAction> getActions() {
+        return actions;
     }
 }
