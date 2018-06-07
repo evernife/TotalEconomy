@@ -26,6 +26,7 @@
 package com.erigitic.commands;
 
 import com.erigitic.config.AccountManager;
+import com.erigitic.config.TEAccount;
 import com.erigitic.jobs.Job;
 import com.erigitic.jobs.JobBasedRequirement;
 import com.erigitic.jobs.JobManager;
@@ -41,6 +42,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import com.erigitic.util.StringUtil;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
@@ -93,12 +96,14 @@ public class JobCommand implements CommandExecutor {
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
         if (src instanceof Player) {
             Player player = ((Player) src).getPlayer().get();
-            String jobName = jobManager.getPlayerJob(player);
+            TEAccount account = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
+
+            String jobName = account.getCurrentJobName();
 
             Map<String, String> messageValues = new HashMap<>();
-            messageValues.put("job", jobManager.titleize(jobName));
-            messageValues.put("curlevel", String.valueOf(jobManager.getJobLevel(jobName, player)));
-            messageValues.put("curexp", String.valueOf(jobManager.getJobExp(jobName, player)));
+            messageValues.put("job", StringUtil.titleize(jobName));
+            messageValues.put("curlevel", String.valueOf(account.getCurrentJobLevel()));
+            messageValues.put("curexp", String.valueOf(account.getCurrentJobExp()));
             messageValues.put("exptolevel", String.valueOf(jobManager.getExpToLevel(player)));
 
             player.sendMessage(messageManager.getMessage("command.job.current", messageValues));
@@ -150,6 +155,8 @@ public class JobCommand implements CommandExecutor {
                 throw new CommandException(Text.of("Job " + jobName + " does not exist!"));
             }
 
+            TEAccount account = (TEAccount) accountManager.getOrCreateAccount(user.getUniqueId()).get();
+
             Job job = optJob.get();
             if (job.getRequirement().isPresent()) {
                 JobBasedRequirement req = job.getRequirement().get();
@@ -158,18 +165,18 @@ public class JobCommand implements CommandExecutor {
                     throw new CommandException(Text.of("Not permitted to join job \"", TextColors.GOLD, jobName, TextColors.RED, "\""));
                 }
 
-                if (req.getRequiredJob() != null && req.getRequiredJobLevel() > jobManager.getJobLevel(req.getRequiredJob().toLowerCase(), user)) {
+                if (req.getRequiredJob() != null && req.getRequiredJobLevel() > account.getJobLevel(req.getRequiredJob().toLowerCase())) {
                     throw new CommandException(Text.of("Insufficient level! Level ",
                              TextColors.GOLD, req.getRequiredJobLevel(), TextColors.RED," as a ",
                              TextColors.GOLD, req.getRequiredJob(), TextColors.RED, " required!"));
                 }
             }
 
-            if (!jobManager.setJob(user, jobName)) {
+            if (!account.setCurrentJob(jobName)) {
                 throw new CommandException(Text.of("Failed to set job. Contact your administrator."));
             } else if (user.getPlayer().isPresent()) {
                 Map<String, String> messageValues = new HashMap<>();
-                messageValues.put("job", jobManager.titleize(jobName));
+                messageValues.put("job", StringUtil.titleize(jobName));
 
                 user.getPlayer().get().sendMessage(messageManager.getMessage("command.job.set", messageValues));
             }
@@ -204,14 +211,21 @@ public class JobCommand implements CommandExecutor {
         public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
             Optional<String> optJobName = args.getOne("jobName");
             Optional<Job> optJob = Optional.empty();
+            String jobName = "";
             boolean extended = args.hasAny("e");
 
+            // Get info on a player's current job
             if (!optJobName.isPresent() && (src instanceof Player)) {
-                optJob = jobManager.getJob(jobManager.getPlayerJob((Player) src), true);
+                Player player = (Player) src;
+
+                TEAccount account = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
+                optJob = jobManager.getJob(account.getCurrentJobName(), true);
+                jobName = account.getCurrentJobName();
             }
 
             if (optJobName.isPresent()) {
                 optJob = jobManager.getJob(optJobName.get().toLowerCase(), false);
+                jobName = optJobName.get();
             }
 
             if (!optJob.isPresent()) {
@@ -254,13 +268,13 @@ public class JobCommand implements CommandExecutor {
                             }
                         }
 
-                        lines.add(Text.of(TextColors.GOLD, "[", jobManager.titleize(action.getAction()), "] ", TextColors.GRAY, action.getTargetId(), TextColors.GOLD, listText));
+                        lines.add(Text.of(TextColors.GOLD, "[", StringUtil.titleize(action.getAction()), "] ", TextColors.GRAY, action.getTargetId(), TextColors.GOLD, listText));
                     }
                 }
             }
 
             pageBuilder.reset()
-                       .header(Text.of(TextColors.GRAY, "Job information for ", TextColors.GOLD, optJobName.orElseGet(() -> jobManager.getPlayerJob((Player) src)),"\n"))
+                       .header(Text.of(TextColors.GRAY, "Job information for ", TextColors.GOLD, jobName,"\n"))
                        .contents(lines.toArray(new Text[lines.size()]))
                        .build()
                        .sendTo(src);

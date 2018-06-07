@@ -25,9 +25,12 @@
 
 package com.erigitic.config;
 
+import com.erigitic.jobs.Job;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.sql.SqlQuery;
+
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +38,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.erigitic.util.StringUtil;
+import ninja.leaping.configurate.ConfigurationNode;
+import org.slf4j.Logger;
+import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.service.context.Context;
 import org.spongepowered.api.service.economy.Currency;
@@ -46,15 +53,17 @@ import org.spongepowered.api.service.economy.transaction.TransactionType;
 import org.spongepowered.api.service.economy.transaction.TransactionTypes;
 import org.spongepowered.api.service.economy.transaction.TransferResult;
 import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.format.TextColors;
 
 public class TEAccount implements UniqueAccount {
 
     private final TotalEconomy totalEconomy;
+    private final Logger logger;
     private final AccountManager accountManager;
     private final UUID uuid;
     private final SqlManager sqlManager;
 
-    private final boolean databaseActive;
+    private final boolean databaseEnabled;
 
     /**
      * Constructor for the TEAccount class. Manages a unique account, identified by a {@link UUID}, that contains balances for each {@link Currency}.
@@ -65,9 +74,10 @@ public class TEAccount implements UniqueAccount {
         this.uuid = uuid;
 
         totalEconomy = TotalEconomy.getInstance();
+        logger = totalEconomy.getLogger();
         accountManager = totalEconomy.getAccountManager();
-        databaseActive = totalEconomy.isDatabaseEnabled();
-        sqlManager = (databaseActive ? totalEconomy.getSqlManager() : null);
+        databaseEnabled = totalEconomy.isDatabaseEnabled();
+        sqlManager = (databaseEnabled ? totalEconomy.getSqlManager() : null);
     }
 
     /**
@@ -100,7 +110,7 @@ public class TEAccount implements UniqueAccount {
     public boolean hasBalance(Currency currency, Set<Context> contexts) {
         String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
-        if (databaseActive) {
+        if (databaseEnabled) {
             SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                     .select(currencyName + "_balance")
                     .from("accounts")
@@ -126,7 +136,7 @@ public class TEAccount implements UniqueAccount {
         if (hasBalance(currency, contexts)) {
             String currencyName = currency.getDisplayName().toPlain().toLowerCase();
 
-            if (databaseActive) {
+            if (databaseEnabled) {
                 SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .select(currencyName + "_balance")
                         .from("accounts")
@@ -183,7 +193,7 @@ public class TEAccount implements UniqueAccount {
             BigDecimal delta = amount.subtract(getBalance(currency));
             TransactionType transactionType = delta.compareTo(BigDecimal.ZERO) >= 0 ? TransactionTypes.DEPOSIT : TransactionTypes.WITHDRAW;
 
-            if (databaseActive) {
+            if (databaseEnabled) {
                 SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
                         .update("accounts")
                         .set(currencyName + "_balance")
@@ -352,5 +362,218 @@ public class TEAccount implements UniqueAccount {
     @Override
     public Set<Context> getActiveContexts() {
         return new HashSet<>();
+    }
+
+    public boolean setCurrentJob(String jobName) {
+        jobName = jobName.toLowerCase();
+
+        if (databaseEnabled) {
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                    .update("accounts")
+                    .set("job")
+                    .equals(jobName)
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+
+            if (sqlQuery.getRowsAffected() <= 0) {
+                logger.warn("An error occurred while changing the job of " + uuid + "/" + getDisplayName() + "!");
+                return false;
+            }
+
+            return true;
+        } else {
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+            accountConfig.getNode(uuid.toString(), "job").setValue(jobName);
+
+            accountConfig.getNode(uuid.toString(), "jobstats", jobName, "level").setValue(
+                    accountConfig.getNode(uuid.toString(), "jobstats", jobName, "level").getInt(1));
+
+            accountConfig.getNode(uuid.toString(), "jobstats", jobName, "exp").setValue(
+                    accountConfig.getNode(uuid.toString(), "jobstats", jobName, "exp").getInt(0));
+
+            try {
+                accountManager.getConfigManager().save(accountConfig);
+            } catch (IOException e) {
+                logger.warn("An error occurred while changing the job of " + uuid + "/" + getDisplayName() + "!");
+                return false;
+            }
+
+            return true;
+        }
+    }
+
+    public String getCurrentJobName() {
+        if (databaseEnabled) {
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                    .select("job")
+                    .from("accounts")
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+
+            return sqlQuery.getString("unemployed").toLowerCase();
+        } else {
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+            return accountConfig.getNode(uuid.toString(), "job").getString("unemployed").toLowerCase();
+        }
+    }
+
+    public boolean hasJobNotifications() {
+        if (databaseEnabled) {
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).select("job_notifications")
+                    .from("accounts")
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+
+            return sqlQuery.getBoolean(true);
+        } else {
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+            return accountConfig.getNode(uuid.toString(), "jobnotifications").getBoolean(true);
+        }
+    }
+
+    public int getCurrentJobLevel() {
+        String currentJob = getCurrentJobName();
+
+        if (!currentJob.equals("unemployed")) {
+            if (databaseEnabled) {
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                        .select(currentJob)
+                        .from("levels")
+                        .where("uid")
+                        .equals(uuid.toString())
+                        .build();
+
+                return sqlQuery.getInt(1);
+            } else {
+                ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+                return accountConfig.getNode(uuid.toString(), "jobstats", currentJob, "level").getInt(1);
+            }
+        }
+
+        return 1;
+    }
+
+    public int getJobLevel(String jobName) {
+        jobName = jobName.toLowerCase();
+
+        if (!jobName.equals("unemployed")) {
+            if (databaseEnabled) {
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                        .select(jobName)
+                        .from("levels")
+                        .where("uid")
+                        .equals(uuid.toString())
+                        .build();
+
+                return sqlQuery.getInt(1);
+            } else {
+                ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+                return accountConfig.getNode(uuid.toString(), "jobstats", jobName, "level").getInt(1);
+            }
+        }
+
+        return 1;
+    }
+
+    public int getCurrentJobExp() {
+        String currentJob = getCurrentJobName();
+
+        if (!currentJob.equals("unemployed")) {
+            if (databaseEnabled) {
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                        .select(currentJob)
+                        .from("experience")
+                        .where("uid")
+                        .equals(uuid.toString())
+                        .build();
+
+                return sqlQuery.getInt(0);
+            } else {
+                ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+                return accountConfig.getNode(uuid.toString(), "jobstats", currentJob, "exp").getInt(0);
+            }
+        }
+
+        return 0;
+    }
+
+    public int getJobExp(String jobName) {
+        jobName = jobName.toLowerCase();
+
+        if (!jobName.equals("unemployed")) {
+            if (databaseEnabled) {
+                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                        .select(jobName)
+                        .from("experience")
+                        .where("uid")
+                        .equals(uuid.toString())
+                        .build();
+
+                return sqlQuery.getInt(0);
+            } else {
+                ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+                return accountConfig.getNode(uuid.toString(), "jobstats", jobName, "exp").getInt(0);
+            }
+        }
+
+        return 0;
+    }
+
+    public void setCurrentJobLevel(int level) {
+        String currentJobName = getCurrentJobName();
+
+        if (databaseEnabled) {
+            SqlQuery.builder(sqlManager.getDataSource())
+                    .update("levels")
+                    .set(currentJobName)
+                    .equals(String.valueOf(level))
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+        } else {
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+            accountConfig.getNode(uuid.toString(), "jobstats", currentJobName, "level").setValue(level);
+        }
+    }
+
+    public boolean addExpToCurrentJob(int exp) {
+        String currentJobName = getCurrentJobName();
+
+        if (databaseEnabled) {
+            int newExp = getCurrentJobExp() + exp;
+
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
+                    .update("experience")
+                    .set(currentJobName)
+                    .equals(String.valueOf(newExp))
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+
+            if (sqlQuery.getRowsAffected() <= 0) {
+                logger.warn("An error occurred while updating job experience in the database!");
+                return false;
+            }
+        } else {
+            int curExp = getCurrentJobExp();
+
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+            accountConfig.getNode(uuid.toString(), "jobstats", currentJobName, "exp").setValue(curExp + exp);
+
+            accountManager.requestConfigurationSave();
+        }
+
+        return true;
     }
 }

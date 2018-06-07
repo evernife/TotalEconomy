@@ -31,6 +31,7 @@ import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.sql.SqlQuery;
 import com.erigitic.util.MessageManager;
+import com.erigitic.util.StringUtil;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -91,7 +92,6 @@ public class JobManager {
 
     private File jobSetsFile;
     private ConfigurationLoader<CommentedConfigurationNode> jobSetsLoader;
-    private ConfigurationNode jobSetsConfig;
     private Map<String, JobSet> jobSets;
 
     private File jobsFile;
@@ -125,8 +125,9 @@ public class JobManager {
         payTask.execute(() -> {
             if (totalEconomy.getGame().isServerAvailable()) {
                 for (Player player : totalEconomy.getServer().getOnlinePlayers()) {
-                    Optional<Job> optJob = getJob(getPlayerJob(player), true);
+                    TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
 
+                    Optional<Job> optJob = getJob(playerAccount.getCurrentJobName(), true);
                     if (!optJob.isPresent()) {
                         player.sendMessage(Text.of(TextColors.RED, "[TE] Cannot pay your salary! Contact your administrator!"));
 
@@ -135,7 +136,6 @@ public class JobManager {
 
                     if (optJob.get().salaryEnabled()) {
                         BigDecimal salary = optJob.get().getSalary();
-                        TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
 
                         EventContext eventContext = EventContext.builder()
                                 .add(EventContextKeys.PLAYER, player)
@@ -189,7 +189,7 @@ public class JobManager {
                 }
             }
 
-            jobSetsConfig = jobSetsLoader.load();
+            ConfigurationNode jobSetsConfig = jobSetsLoader.load();
             ConfigurationNode sets = jobSetsConfig.getNode("sets");
 
             sets.getChildrenMap().forEach((setName, setNode) -> {
@@ -254,100 +254,28 @@ public class JobManager {
     }
 
     /**
-     * Add exp to player's current job.
-     *
-     * @param player The player to give experience to
-     * @param expAmount The amount of experience to add
-     */
-    private void addExp(Player player, int expAmount) {
-        String jobName = getPlayerJob(player);
-        UUID playerUniqueId = player.getUniqueId();
-        boolean jobNotifications = accountManager.getJobNotificationState(player);
-
-        Map<String, String> messageValues = new HashMap<>();
-        messageValues.put("job", titleize(jobName));
-        messageValues.put("exp", String.valueOf(expAmount));
-
-        if (databaseEnabled) {
-            int newExp = getJobExp(jobName, player) + expAmount;
-
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                    .update("experience")
-                    .set(jobName)
-                    .equals(String.valueOf(newExp))
-                    .where("uid")
-                    .equals(playerUniqueId.toString())
-                    .build();
-
-            if (sqlQuery.getRowsAffected() > 0) {
-                if (jobNotifications) {
-                    player.sendMessage(messageManager.getMessage("jobs.addexp", messageValues));
-                }
-            } else {
-                logger.warn("An error occurred while updating job experience in the database!");
-                player.sendMessage(Text.of(TextColors.RED, "[TE] Error adding experience! Consult an administrator!"));
-            }
-        } else {
-            ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-            int curExp = accountConfig.getNode(playerUniqueId.toString(), "jobstats", jobName, "exp").getInt();
-
-            accountConfig.getNode(playerUniqueId.toString(), "jobstats", jobName, "exp").setValue(curExp + expAmount);
-
-            if (jobNotifications) {
-                player.sendMessage(messageManager.getMessage("jobs.addexp", messageValues));
-            }
-
-            try {
-                accountManager.getConfigManager().save(accountConfig);
-            } catch (IOException e) {
-                logger.warn("An error occurred while saving the account configuration file!");
-            }
-        }
-    }
-
-    /**
      * Checks if the player has enough exp to level up. If they do they will gain a level and their current exp will be
      * reset.
      *
      * @param player player object
      */
     private void checkForLevel(Player player) {
-        UUID playerUniqueId = player.getUniqueId();
-        String jobName = getPlayerJob(player);
-        int playerLevel = getJobLevel(jobName, player);
-        int playerCurExp = getJobExp(jobName, player);
+        TEAccount account = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
+
+        String currentJobName = account.getCurrentJobName();
+
+        int playerLevel = account.getCurrentJobLevel();
+        int playerCurExp = account.getCurrentJobExp();
         int expToLevel = getExpToLevel(player);
 
         if (playerCurExp >= expToLevel) {
             playerLevel += 1;
 
             Map<String, String> messageValues = new HashMap<>();
-            messageValues.put("job", titleize(jobName));
+            messageValues.put("job", StringUtil.titleize(currentJobName));
             messageValues.put("level", String.valueOf(playerLevel));
 
-            if (databaseEnabled) {
-                SqlQuery.builder(sqlManager.getDataSource())
-                        .update("levels")
-                        .set(jobName)
-                        .equals(String.valueOf(playerLevel))
-                        .where("uid")
-                        .equals(playerUniqueId.toString())
-                        .build();
-
-                SqlQuery.builder(sqlManager.getDataSource())
-                        .update("experience")
-                        .set(jobName)
-                        .equals(String.valueOf(playerCurExp))
-                        .where("uid")
-                        .equals(playerUniqueId.toString())
-                        .build();
-            } else {
-                ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-                accountConfig.getNode(playerUniqueId.toString(), "jobstats", jobName, "level").setValue(playerLevel);
-                accountConfig.getNode(playerUniqueId.toString(), "jobstats", jobName, "exp").setValue(playerCurExp);
-            }
+            account.setCurrentJobLevel(playerLevel);
 
             player.sendMessage(messageManager.getMessage("jobs.levelup", messageValues));
         }
@@ -361,31 +289,6 @@ public class JobManager {
      */
     private boolean jobExists(String jobName) {
         return jobsConfig.getNode("jobs", jobName.toLowerCase()).getValue() != null;
-    }
-
-    /**
-     * Convert strings to titles (title -> Title).
-     *
-     * @param input the string to be titleized
-     * @return String the titileized version of the input
-     */
-    public String titleize(String input) {
-        return input.substring(0, 1).toUpperCase() + input.substring(1).toLowerCase();
-    }
-
-    private boolean getNotificationState(UUID uuid) {
-        if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                    .select("job_notifications")
-                    .from("accounts")
-                    .where("uid")
-                    .equals(uuid.toString())
-                    .build();
-
-            return sqlQuery.getBoolean(totalEconomy.getJobManager().isNotificationEnabled());
-        }
-
-        return accountManager.getAccountConfig().getNode(uuid.toString(), "jobnotifications").getBoolean();
     }
 
     /**
@@ -403,86 +306,12 @@ public class JobManager {
     }
 
     /**
-     * Set the users's job.
-     *
-     * @param user User object
-     * @param jobName name of the job
-     */
-    public boolean setJob(User user, String jobName) {
-        UUID userUniqueId = user.getUniqueId();
-
-        // Just in case the job name was not passed in as lowercase, make it lowercase
-        jobName = jobName.toLowerCase();
-
-        if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                    .update("accounts")
-                    .set("job")
-                    .equals(jobName)
-                    .where("uid")
-                    .equals(userUniqueId.toString())
-                    .build();
-
-            if (sqlQuery.getRowsAffected() > 0) {
-                return true;
-            } else {
-                logger.warn("An error occurred while changing the job of " + user.getUniqueId() + "/" + user.getName() + "!");
-                return false;
-            }
-        } else {
-            ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-            accountConfig.getNode(userUniqueId.toString(), "job").setValue(jobName);
-
-            accountConfig.getNode(userUniqueId.toString(), "jobstats", jobName, "level").setValue(
-                    accountConfig.getNode(userUniqueId.toString(), "jobstats", jobName, "level").getInt(1));
-
-            accountConfig.getNode(userUniqueId.toString(), "jobstats", jobName, "exp").setValue(
-                    accountConfig.getNode(userUniqueId.toString(), "jobstats", jobName, "exp").getInt(0));
-
-            try {
-                accountManager.getConfigManager().save(accountConfig);
-            } catch (IOException e) {
-                logger.warn("An error occurred while changing the job of " + user.getUniqueId() + "/" + user.getName() + "!");
-            }
-
-            return true;
-        }
-
-    }
-
-    /**
      * Get a job set by name.
      *
      * @return Optional
      */
     public Optional<JobSet> getJobSet(String name) {
         return Optional.ofNullable(jobSets.getOrDefault(name, null));
-    }
-
-    /**
-     * Get the user's current job as a String for output.
-     *
-     * @param user The user to get the job of
-     * @return String the job the user currently has
-     */
-    public String getPlayerJob(User user) {
-        UUID uuid = user.getUniqueId();
-
-        if (databaseEnabled) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                    .select("job")
-                    .from("accounts")
-                    .where("uid")
-                    .equals(uuid.toString())
-                    .build();
-
-            return sqlQuery.getString("unemployed").toLowerCase();
-        } else {
-            ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-            return accountConfig.getNode(user.getUniqueId().toString(), "job").getString("unemployed").toLowerCase();
-        }
     }
 
     /**
@@ -503,86 +332,18 @@ public class JobManager {
     }
 
     /**
-     * Get the players level for the passed in job.
-     *
-     * @param jobName The name of the job
-     * @param user The user object
-     * @return int The job level
-     */
-    public int getJobLevel(String jobName, User user) {
-        UUID playerUniqueId = user.getUniqueId();
-
-        // Just in case the job name was not passed in as lowercase, make it lowercase
-        jobName = jobName.toLowerCase();
-
-        if (!jobName.equals("unemployed")) {
-            if (databaseEnabled) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                        .select(jobName)
-                        .from("levels")
-                        .where("uid")
-                        .equals(playerUniqueId.toString())
-                        .build();
-
-                return sqlQuery.getInt(1);
-            } else {
-                ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-                return accountConfig.getNode(user.getUniqueId().toString(), "jobstats", jobName, "level").getInt(1);
-            }
-        }
-
-        return 1;
-    }
-
-    /**
-     * Get the players exp for the passed in job.
-     *
-     * @param jobName the name of the job
-     * @param user the user object
-     * @return int the job exp
-     */
-    public int getJobExp(String jobName, User user) {
-        UUID playerUniqueId = user.getUniqueId();
-
-        // Just in case the job name was not passed in as lowercase, make it lowercase
-        jobName = jobName.toLowerCase();
-
-        if (!jobName.equals("unemployed")) {
-            if (databaseEnabled) {
-                SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource())
-                        .select(jobName)
-                        .from("experience")
-                        .where("uid")
-                        .equals(playerUniqueId.toString())
-                        .build();
-
-                return sqlQuery.getInt(0);
-            } else {
-                ConfigurationNode accountConfig = accountManager.getAccountConfig();
-
-                return accountConfig.getNode(playerUniqueId.toString(), "jobstats", jobName, "exp").getInt(0);
-            }
-        }
-
-        return 0;
-    }
-
-    /**
      * Get the exp required to level.
      *
      * @param user user object
      * @return int the amount of exp needed to level
      */
     public int getExpToLevel(User user) {
-        String jobName = getPlayerJob(user);
-        int playerLevel = getJobLevel(jobName, user);
+        TEAccount account = (TEAccount) accountManager.getOrCreateAccount(user.getUniqueId()).get();
 
+        int playerLevel = account.getCurrentJobLevel();
         int nextLevel = playerLevel + 1;
-        int expToLevel = (int) ((Math.pow(nextLevel, 2) + nextLevel) / 2) * 100 - (nextLevel * 100);
 
-        // TODO: Custom algorithm for this, set from config
-        return expToLevel;
+        return ((int) ((Math.pow(nextLevel, 2) + nextLevel) / 2) * 100 - (nextLevel * 100));
     }
 
     /**
@@ -599,7 +360,22 @@ public class JobManager {
                 jobName))
         );
 
-        return Text.joinWith(Text.of(", "), texts.toArray(new Text[texts.size()]));
+        return Text.joinWith(Text.of(", "), texts.toArray(new Text[0]));
+    }
+
+    private void handleAddExp(Player player, TEAccount account, int expAmount) {
+        String playerJobName = account.getCurrentJobName();
+        boolean success = account.addExpToCurrentJob(expAmount);
+
+        if (success && account.hasJobNotifications()) {
+            Map<String, String> messageValues = new HashMap<>();
+            messageValues.put("job", StringUtil.titleize(playerJobName));
+            messageValues.put("exp", String.valueOf(expAmount));
+
+            player.sendMessage(messageManager.getMessage("jobs.addexp", messageValues));
+        }
+
+        checkForLevel(player);
     }
 
     /**
@@ -618,7 +394,7 @@ public class JobManager {
         if (lineOnePlain.equals("[TEJobs]")) {
             lineOne = lineOne.toBuilder().style(TextStyles.BOLD).color(TextColors.DARK_BLUE).build();
 
-            String jobName = titleize(lineTwoPlain);
+            String jobName = StringUtil.titleize(lineTwoPlain);
             if (jobExists(lineTwoPlain)) {
                 lineTwo = Text.of(jobName).toBuilder().color(TextColors.BLACK).build();
             } else {
@@ -662,21 +438,22 @@ public class JobManager {
 
                             if (lineOne.equals("[TEJobs]")) {
                                 Map<String, String> messageValues = new HashMap<>();
-                                messageValues.put("job", titleize(jobName));
+                                messageValues.put("job", StringUtil.titleize(jobName));
                                 
                                 Optional<Job> optJob = getJob(jobName, false);
 
                                 if (optJob.isPresent()) {
                                     Optional<JobBasedRequirement> optRequire = optJob.get().getRequirement();
+                                    TEAccount account = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
 
                                     if (optRequire.isPresent()) {
                                         String reqJob = optRequire.get().getRequiredJob();
                                         Integer reqLevel = optRequire.get().getRequiredJobLevel();
                                         String reqPerm = optRequire.get().getRequiredPermission();
 
-                                        int currentReqJobLevel = getJobLevel(reqJob, player);
+                                        int currentReqJobLevel = account.getCurrentJobLevel();
                                         if (reqJob != null && reqLevel > currentReqJobLevel) {
-                                            messageValues.put("job", titleize(reqJob));
+                                            messageValues.put("job", StringUtil.titleize(reqJob));
                                             messageValues.put("level", reqLevel.toString());
                                             player.sendMessage(messageManager.getMessage("jobs.unmet.level", messageValues));
                                             return;
@@ -688,7 +465,7 @@ public class JobManager {
                                         }
                                     }
 
-                                    if (setJob(player, jobName)) {
+                                    if (account.setCurrentJob(jobName)) {
                                         player.sendMessage(messageManager.getMessage("jobs.sign", messageValues));
                                     } else {
                                         player.sendMessage(messageManager.getMessage("jobs.setfailed"));
@@ -716,9 +493,10 @@ public class JobManager {
         if (event.getCause().first(Player.class).isPresent()) {
             Player player = event.getCause().first(Player.class).get();
             UUID playerUniqueId = player.getUniqueId();
+            TEAccount account = (TEAccount) accountManager.getOrCreateAccount(playerUniqueId).get();
 
-            String playerJob = getPlayerJob(player);
-            Optional<Job> optPlayerJob = getJob(playerJob, true);
+            String playerJobName = account.getCurrentJobName();
+            Optional<Job> optPlayerJob = getJob(playerJobName, true);
 
             BlockState state = event.getTransactions().get(0).getOriginal().getState();
             String blockName = state.getType().getName();
@@ -747,7 +525,7 @@ public class JobManager {
                 for (String s : sets) {
                     Optional<JobSet> optSet = getJobSet(s);
                     if (!optSet.isPresent()) {
-                        logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
+                        logger.warn("Job " + playerJobName + " has the nonexistent set \"" + s + "\"");
                         continue;
                     }
 
@@ -783,17 +561,16 @@ public class JobManager {
                         }
                     }
 
-                    boolean notify = getNotificationState(playerUniqueId);
+                    boolean notify = account.hasJobNotifications();
                     if (notify) {
                         notifyPlayerOfJobReward(player, payAmount, currency);
                     }
 
-                    TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
-                    playerAccount.deposit(currency, payAmount, event.getCause());
+                    account.deposit(currency, payAmount, event.getCause());
 
                     int expAmount = reward.get().getExpReward();
-                    addExp(player, expAmount);
-                    checkForLevel(player);
+
+                    handleAddExp(player, account, expAmount);
                 }
             }
         }
@@ -811,9 +588,10 @@ public class JobManager {
         if (event.getCause().first(Player.class).isPresent()) {
             Player player = event.getCause().first(Player.class).get();
             UUID playerUniqueId = player.getUniqueId();
+            TEAccount account = (TEAccount) accountManager.getOrCreateAccount(playerUniqueId).get();
 
-            String playerJob = getPlayerJob(player);
-            Optional<Job> optPlayerJob = getJob(playerJob, true);
+            String playerJobName = account.getCurrentJobName();
+            Optional<Job> optPlayerJob = getJob(playerJobName, true);
 
             BlockState state = event.getTransactions().get(0).getFinal().getState();
             String blockName = state.getType().getName();
@@ -841,7 +619,7 @@ public class JobManager {
                 for (String s : sets) {
                     Optional<JobSet> optSet = getJobSet(s);
                     if (!optSet.isPresent()) {
-                        logger.warn("Job " + playerJob + " has the nonexistent set \"" + s + "\"");
+                        logger.warn("Job " + playerJobName + " has the nonexistent set \"" + s + "\"");
                         continue;
                     }
 
@@ -867,7 +645,7 @@ public class JobManager {
                 }
 
                 if (reward.isPresent()) {
-                    boolean notify = getNotificationState(playerUniqueId);
+                    boolean notify = account.hasJobNotifications();
                     BigDecimal payAmount = new BigDecimal(reward.get().getMoneyReward());
                     Currency currency = totalEconomy.getDefaultCurrency();
 
@@ -882,13 +660,11 @@ public class JobManager {
                         notifyPlayerOfJobReward(player, payAmount, currency);
                     }
 
-                    TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
-                    playerAccount.deposit(currency, payAmount, event.getCause());
+                    account.deposit(currency, payAmount, event.getCause());
 
                     int expAmount = reward.get().getExpReward();
-                    addExp(player, expAmount);
 
-                    checkForLevel(player);
+                    handleAddExp(player, account, expAmount);
                 }
             }
         }
@@ -924,7 +700,9 @@ public class JobManager {
                 UUID playerUniqueId = player.getUniqueId();
                 String victimName = victim.getType().getName();
 
-                String playerJob = getPlayerJob(player);
+                TEAccount account = (TEAccount) accountManager.getOrCreateAccount(playerUniqueId).get();
+
+                String playerJob = account.getCurrentJobName();
                 Optional<Job> optPlayerJob = getJob(playerJob, true);
 
                 // Enable admins to determine victim information by displaying it to them - WHEN they have the flag enabled
@@ -965,7 +743,7 @@ public class JobManager {
                     }
 
                     if (reward.isPresent()) {
-                        boolean notify = getNotificationState(playerUniqueId);
+                        boolean notify = account.hasJobNotifications();
                         BigDecimal payAmount = new BigDecimal(reward.get().getMoneyReward());
                         Currency currency = totalEconomy.getDefaultCurrency();
 
@@ -980,13 +758,11 @@ public class JobManager {
                             notifyPlayerOfJobReward(player, payAmount, currency);
                         }
 
-                        TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
-                        playerAccount.deposit(currency, payAmount, event.getCause());
+                        account.deposit(currency, payAmount, event.getCause());
 
                         int expAmount = reward.get().getExpReward();
-                        addExp(player, expAmount);
 
-                        checkForLevel(player);
+                        handleAddExp(player, account, expAmount);
                     }
                 }
             }
@@ -1012,8 +788,9 @@ public class JobManager {
             ItemStack itemStack = itemTransaction.getFinal().createStack();
             Player player = event.getCause().first(Player.class).get();
             UUID playerUniqueId = player.getUniqueId();
+            TEAccount account = (TEAccount) accountManager.getOrCreateAccount(playerUniqueId).get();
 
-            String playerJob = getPlayerJob(player);
+            String playerJob = account.getCurrentJobName();
             Optional<Job> optPlayerJob = getJob(playerJob, true);
 
             if (optPlayerJob.isPresent()) {
@@ -1059,7 +836,7 @@ public class JobManager {
                     }
 
                     if (reward.isPresent()) {
-                        boolean notify = getNotificationState(playerUniqueId);
+                        boolean notify = account.hasJobNotifications();
                         BigDecimal payAmount = new BigDecimal(reward.get().getMoneyReward());
                         Currency currency = totalEconomy.getDefaultCurrency();
 
@@ -1074,13 +851,11 @@ public class JobManager {
                             notifyPlayerOfJobReward(player, payAmount, currency);
                         }
 
-                        TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(player.getUniqueId()).get();
-                        playerAccount.deposit(currency, payAmount, event.getCause());
+                        account.deposit(currency, payAmount, event.getCause());
 
                         int expAmount = reward.get().getExpReward();
-                        addExp(player, expAmount);
 
-                        checkForLevel(player);
+                        handleAddExp(player, account, expAmount);
                     }
                 }
             }
