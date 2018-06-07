@@ -35,7 +35,7 @@ import com.erigitic.jobs.JobManager;
 import com.erigitic.jobs.JobSet;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.util.MessageManager;
-import com.erigitic.util.StringUtil;
+import com.erigitic.util.StringUtils;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,7 +100,7 @@ public class JobCommand implements CommandExecutor {
             String jobName = account.getCurrentJobName();
 
             Map<String, String> messageValues = new HashMap<>();
-            messageValues.put("job", StringUtil.titleize(jobName));
+            messageValues.put("job", StringUtils.titleize(jobName));
             messageValues.put("curlevel", String.valueOf(account.getCurrentJobLevel()));
             messageValues.put("curexp", String.valueOf(account.getCurrentJobExp()));
             messageValues.put("exptolevel", String.valueOf(jobManager.getExpToLevel(player)));
@@ -175,7 +175,7 @@ public class JobCommand implements CommandExecutor {
                 throw new CommandException(Text.of("Failed to set job. Contact your administrator."));
             } else if (user.getPlayer().isPresent()) {
                 Map<String, String> messageValues = new HashMap<>();
-                messageValues.put("job", StringUtil.titleize(jobName));
+                messageValues.put("job", StringUtils.titleize(jobName));
 
                 user.getPlayer().get().sendMessage(messageManager.getMessage("command.job.set", messageValues));
             }
@@ -267,7 +267,7 @@ public class JobCommand implements CommandExecutor {
                             }
                         }
 
-                        lines.add(Text.of(TextColors.GOLD, "[", StringUtil.titleize(action.getAction()), "] ", TextColors.GRAY, action.getTargetId(), TextColors.GOLD, listText));
+                        lines.add(Text.of(TextColors.GOLD, "[", StringUtils.titleize(action.getAction()), "] ", TextColors.GRAY, action.getTargetId(), TextColors.GOLD, listText));
                     }
                 }
             }

@@ -29,9 +29,8 @@ import com.erigitic.config.AccountManager;
 import com.erigitic.config.TEAccount;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
-import com.erigitic.sql.SqlQuery;
 import com.erigitic.util.MessageManager;
-import com.erigitic.util.StringUtil;
+import com.erigitic.util.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -272,7 +271,7 @@ public class JobManager {
             playerLevel += 1;
 
             Map<String, String> messageValues = new HashMap<>();
-            messageValues.put("job", StringUtil.titleize(currentJobName));
+            messageValues.put("job", StringUtils.titleize(currentJobName));
             messageValues.put("level", String.valueOf(playerLevel));
 
             account.setCurrentJobLevel(playerLevel);
@@ -369,7 +368,7 @@ public class JobManager {
 
         if (success && account.hasJobNotifications()) {
             Map<String, String> messageValues = new HashMap<>();
-            messageValues.put("job", StringUtil.titleize(playerJobName));
+            messageValues.put("job", StringUtils.titleize(playerJobName));
             messageValues.put("exp", String.valueOf(expAmount));
 
             player.sendMessage(messageManager.getMessage("jobs.addexp", messageValues));
@@ -394,7 +393,7 @@ public class JobManager {
         if (lineOnePlain.equals("[TEJobs]")) {
             lineOne = lineOne.toBuilder().style(TextStyles.BOLD).color(TextColors.DARK_BLUE).build();
 
-            String jobName = StringUtil.titleize(lineTwoPlain);
+            String jobName = StringUtils.titleize(lineTwoPlain);
             if (jobExists(lineTwoPlain)) {
                 lineTwo = Text.of(jobName).toBuilder().color(TextColors.BLACK).build();
             } else {
@@ -438,7 +437,7 @@ public class JobManager {
 
                             if (lineOne.equals("[TEJobs]")) {
                                 Map<String, String> messageValues = new HashMap<>();
-                                messageValues.put("job", StringUtil.titleize(jobName));
+                                messageValues.put("job", StringUtils.titleize(jobName));
                                 
                                 Optional<Job> optJob = getJob(jobName, false);
 
@@ -453,7 +452,7 @@ public class JobManager {
 
                                         int currentReqJobLevel = account.getCurrentJobLevel();
                                         if (reqJob != null && reqLevel > currentReqJobLevel) {
-                                            messageValues.put("job", StringUtil.titleize(reqJob));
+                                            messageValues.put("job", StringUtils.titleize(reqJob));
                                             messageValues.put("level", reqLevel.toString());
                                             player.sendMessage(messageManager.getMessage("jobs.unmet.level", messageValues));
                                             return;

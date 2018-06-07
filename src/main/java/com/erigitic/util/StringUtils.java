@@ -1,6 +1,6 @@
 package com.erigitic.util;
 
-public class StringUtil {
+public class StringUtils {
 
     /**
      * Convert strings to titles (title -> Title).
