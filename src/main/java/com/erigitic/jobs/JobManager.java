@@ -503,7 +503,7 @@ public class JobManager {
             Optional<UUID> blockCreator = event.getTransactions().get(0).getOriginal().getCreator();
 
             // Enable admins to determine block information by displaying it to them - WHEN they have the flag enabled
-            if (accountManager.getUserOption("totaleconomy:block-break-info", player).orElse("0").equals("1")) {
+            if (account.getDebugOption("totaleconomy:block-break-info").orElse("0").equals("1")) {
                 List<BlockTrait<?>> traits = new ArrayList<>(state.getTraits());
                 int count = traits.size();
                 List<Text> traitTexts = new ArrayList<>(count);
@@ -597,7 +597,7 @@ public class JobManager {
             String blockName = state.getType().getName();
 
             // Enable admins to determine block information by displaying it to them - WHEN they have the flag enabled
-            if (accountManager.getUserOption("totaleconomy:block-place-info", player).orElse("0").equals("1")) {
+            if (account.getDebugOption("totaleconomy:block-place-info").orElse("0").equals("1")) {
                 List<BlockTrait<?>> traits = new ArrayList<>(state.getTraits());
                 int count = traits.size();
                 List<Text> traitTexts = new ArrayList<>(count);
@@ -706,7 +706,7 @@ public class JobManager {
                 Optional<Job> optPlayerJob = getJob(playerJob, true);
 
                 // Enable admins to determine victim information by displaying it to them - WHEN they have the flag enabled
-                if (accountManager.getUserOption("totaleconomy:entity-kill-info", player).orElse("0").equals("1")) {
+                if (account.getDebugOption("totaleconomy:entity-kill-info").orElse("0").equals("1")) {
                     player.sendMessage(Text.of("Victim-Name: ", victimName));
                 }
 
@@ -799,7 +799,7 @@ public class JobManager {
                     String fishName = fishData.type().get().getName();
 
                     // Enable admins to determine fish information by displaying it to them - WHEN they have the flag enabled
-                    if (accountManager.getUserOption("totaleconomy:entity-fish-info", player).orElse("0").equals("1")) {
+                    if (account.getDebugOption("totaleconomy:entity-fish-info").orElse("0").equals("1")) {
                         player.sendMessage(Text.of("Fish-Name: ", fishName));
                     }
 

@@ -61,7 +61,7 @@ public class AccountManager implements EconomyService {
     private ConfigurationLoader<CommentedConfigurationNode> loader;
     private ConfigurationNode accountConfig;
 
-    private final boolean databaseActive;
+    private final boolean databaseEnabled;
 
     private boolean confSaveRequested = false;
 
@@ -77,8 +77,8 @@ public class AccountManager implements EconomyService {
         totalEconomy = TotalEconomy.getInstance();
         logger = totalEconomy.getLogger();
 
-        databaseActive = totalEconomy.isDatabaseEnabled();
-        if (databaseActive) {
+        databaseEnabled = totalEconomy.isDatabaseEnabled();
+        if (databaseEnabled) {
             sqlManager = totalEconomy.getSqlManager();
 
             setupDatabase();
@@ -214,12 +214,12 @@ public class AccountManager implements EconomyService {
 
         try {
             if (!hasAccount) {
-                if (databaseActive) {
-                    createAccountInDatabase(playerAccount);
+                if (databaseEnabled) {
+                    createUniqueAccountInDatabase(playerAccount);
                 } else {
-                    createAccountInConfig(playerAccount);
+                    createUniqueAccountInConfig(playerAccount);
                 }
-            } else if (hasAccount && !databaseActive) {
+            } else if (hasAccount && !databaseEnabled) {
                 addNewCurrenciesToAccount(playerAccount);
             }
         } catch (IOException e) {
@@ -242,12 +242,12 @@ public class AccountManager implements EconomyService {
 
         try {
             if (!hasAccount) {
-                if (databaseActive) {
-                    createAccountInDatabase(virtualAccount);
+                if (databaseEnabled) {
+                    createVirtualAccountInDatabase(virtualAccount);
                 } else {
-                    createAccountInConfig(virtualAccount);
+                    createVirtualAccountInConfig(virtualAccount);
                 }
-            } else if (hasAccount && !databaseActive) {
+            } else if (hasAccount && !databaseEnabled) {
                 addNewCurrenciesToAccount(virtualAccount);
             }
         } catch (IOException e) {
@@ -265,7 +265,7 @@ public class AccountManager implements EconomyService {
      */
     @Override
     public boolean hasAccount(UUID uuid) {
-        if (databaseActive) {
+        if (databaseEnabled) {
             SqlQuery query = SqlQuery.builder(sqlManager.getDataSource())
                     .select("uid")
                     .from("accounts")
@@ -287,7 +287,7 @@ public class AccountManager implements EconomyService {
      */
     @Override
     public boolean hasAccount(String identifier) {
-        if (databaseActive) {
+        if (databaseEnabled) {
             SqlQuery query = SqlQuery.builder(sqlManager.getDataSource())
                     .select("uid")
                     .from("virtual_accounts")
@@ -332,7 +332,7 @@ public class AccountManager implements EconomyService {
      * @param playerAccount A player's account
      * @throws IOException Test
      */
-    private void createAccountInDatabase(TEAccount playerAccount) {
+    private void createUniqueAccountInDatabase(TEAccount playerAccount) {
         UUID uuid = playerAccount.getUniqueId();
 
         SqlQuery.builder(sqlManager.getDataSource()).insert("accounts")
@@ -367,7 +367,7 @@ public class AccountManager implements EconomyService {
      *
      * @param virtualAccount A virtual account
      */
-    private void createAccountInDatabase(TEVirtualAccount virtualAccount) {
+    private void createVirtualAccountInDatabase(TEVirtualAccount virtualAccount) {
         String identifier = virtualAccount.getIdentifier();
 
         for (Currency currency : totalEconomy.getCurrencies()) {
@@ -388,7 +388,7 @@ public class AccountManager implements EconomyService {
      * @param playerAccount A player's account
      * @throws IOException Error saving the accounts configuration file
      */
-    private void createAccountInConfig(TEAccount playerAccount) throws IOException {
+    private void createUniqueAccountInConfig(TEAccount playerAccount) throws IOException {
         UUID uuid = playerAccount.getUniqueId();
 
         for (Currency currency : totalEconomy.getCurrencies()) {
@@ -399,6 +399,7 @@ public class AccountManager implements EconomyService {
 
         accountConfig.getNode(uuid.toString(), "job").setValue("unemployed");
         accountConfig.getNode(uuid.toString(), "jobnotifications").setValue(totalEconomy.getJobManager().isNotificationEnabled());
+
         loader.save(accountConfig);
     }
 
@@ -408,7 +409,7 @@ public class AccountManager implements EconomyService {
      * @param virtualAccount A virtual account
      * @throws IOException Error saving the accounts configuration file
      */
-    private void createAccountInConfig(TEVirtualAccount virtualAccount) throws IOException {
+    private void createVirtualAccountInConfig(TEVirtualAccount virtualAccount) throws IOException {
         String identifier = virtualAccount.getIdentifier();
 
         for (Currency currency : totalEconomy.getCurrencies()) {
@@ -429,16 +430,20 @@ public class AccountManager implements EconomyService {
      */
     private void addNewCurrenciesToAccount(TEAccount playerAccount) throws IOException {
         UUID uuid = playerAccount.getUniqueId();
+        boolean save = false;
 
         for (Currency currency : totalEconomy.getCurrencies()) {
             TECurrency teCurrency = (TECurrency) currency;
 
             if (!playerAccount.hasBalance(teCurrency)) {
                 accountConfig.getNode(uuid.toString(), teCurrency.getName().toLowerCase() + "-balance").setValue(playerAccount.getDefaultBalance(teCurrency));
+                save = true;
             }
         }
 
-        loader.save(accountConfig);
+        if (save) {
+            loader.save(accountConfig);
+        }
     }
 
     /**
@@ -450,99 +455,20 @@ public class AccountManager implements EconomyService {
      */
     private void addNewCurrenciesToAccount(TEVirtualAccount virtualAccount) throws IOException {
         String identifier = virtualAccount.getIdentifier();
+        boolean save = false;
 
         for (Currency currency : totalEconomy.getCurrencies()) {
             TECurrency teCurrency = (TECurrency) currency;
 
             if (!virtualAccount.hasBalance(teCurrency)) {
                 accountConfig.getNode(identifier, teCurrency.getName().toLowerCase() + "-balance").setValue(virtualAccount.getDefaultBalance(teCurrency));
+                save = true;
             }
         }
 
-        loader.save(accountConfig);
-    }
-
-    /**
-     * Gets the passed in player's notification state.
-     *
-     * @param player The {@link Player} who's notification state to get
-     * @return boolean The notification state
-     */
-    public boolean getJobNotificationState(Player player) {
-        UUID playerUniqueId = player.getUniqueId();
-
-        if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).select("job_notifications")
-                    .from("accounts")
-                    .where("uid")
-                    .equals(playerUniqueId.toString())
-                    .build();
-
-            return sqlQuery.getBoolean(true);
-        } else {
-            return accountConfig.getNode(player.getUniqueId().toString(), "jobnotifications").getBoolean(true);
+        if (save) {
+            loader.save(accountConfig);
         }
-    }
-
-    /**
-     * Toggle a player's exp/money notifications for jobs.
-     *
-     * @param player Player toggling notifications
-     */
-    public void toggleNotifications(Player player) {
-        boolean jobNotifications = !getJobNotificationState(player);
-        UUID playerUniqueId = player.getUniqueId();
-
-        if (databaseActive) {
-            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).update("accounts")
-                    .set("job_notifications")
-                    .equals(jobNotifications ? "1" : "0")
-                    .where("uid")
-                    .equals(playerUniqueId.toString())
-                    .build();
-
-            if (sqlQuery.getRowsAffected() <= 0) {
-                player.sendMessage(Text.of(TextColors.RED, "Error toggling notifications! Try again. If this keeps showing up, notify the server owner or plugin developer."));
-                logger.warn("An error occurred while updating the notification state in the database!");
-            }
-        } else {
-            accountConfig.getNode(player.getUniqueId().toString(), "jobnotifications").setValue(jobNotifications);
-
-            try {
-                loader.save(accountConfig);
-            } catch (IOException e) {
-                player.sendMessage(Text.of(TextColors.RED, "Error toggling notifications! Try again. If this keeps showing up, notify the server owner or plugin developer."));
-                logger.warn("An error occurred while updating the notification state!");
-            }
-        }
-
-        if (jobNotifications) {
-            player.sendMessage(messageManager.getMessage("notifications.on"));
-        } else {
-            player.sendMessage(messageManager.getMessage("notifications.off"));
-        }
-    }
-
-    /**
-     * Used for the debugging information provided by the listeners in the JobManager.
-     * Exists to allow administrators to retrieve the necessary information from mods in order to integrate them into jobs.
-     */
-    public Optional<String> getUserOption(String option, User user) {
-        // Currently no db support for this - Shouldn't be that necessary anyways
-        if (databaseActive) {
-            return Optional.empty();
-        }
-
-        return Optional.ofNullable(accountConfig.getNode(user.getUniqueId().toString(), "options", option).getString(null));
-    }
-
-    public void setUserOption(String option, User user, String value) {
-        // Currently no db support for this - Shouldn't be that necessary anyways
-        if (databaseActive) {
-            return;
-        }
-
-        accountConfig.getNode(user.getUniqueId().toString(), "options", option).setValue(value);
     }
 
     /**

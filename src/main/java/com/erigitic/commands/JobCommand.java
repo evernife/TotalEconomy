@@ -28,13 +28,14 @@ package com.erigitic.commands;
 import com.erigitic.config.AccountManager;
 import com.erigitic.config.TEAccount;
 import com.erigitic.jobs.Job;
-import com.erigitic.jobs.JobBasedRequirement;
-import com.erigitic.jobs.JobManager;
 import com.erigitic.jobs.JobAction;
 import com.erigitic.jobs.JobActionReward;
+import com.erigitic.jobs.JobBasedRequirement;
+import com.erigitic.jobs.JobManager;
 import com.erigitic.jobs.JobSet;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.util.MessageManager;
+import com.erigitic.util.StringUtil;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,8 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import com.erigitic.util.StringUtil;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
@@ -340,10 +339,23 @@ public class JobCommand implements CommandExecutor {
         public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
             if (src instanceof Player) {
                 Player sender = (Player) src;
+                TEAccount account = (TEAccount) accountManager.getOrCreateAccount(sender.getUniqueId()).get();
                 Optional<String> optionOpt = args.<String>getOne("option");
 
                 if (!optionOpt.isPresent()) {
-                    accountManager.toggleNotifications(sender);
+                    boolean success = account.toggleJobNotifications();
+
+                    if (!success) {
+                        sender.sendMessage(Text.of(TextColors.RED, "Error toggling notifications! Try again. If this keeps showing up, notify the server owner or plugin developer."));
+
+                        return CommandResult.empty();
+                    }
+
+                    if (account.hasJobNotifications()) {
+                        sender.sendMessage(messageManager.getMessage("notifications.on"));
+                    } else {
+                        sender.sendMessage(messageManager.getMessage("notifications.off"));
+                    }
 
                     return CommandResult.success();
                 } else {
@@ -354,10 +366,10 @@ public class JobCommand implements CommandExecutor {
                         throw new CommandException(Text.of("[TE] Unknown option: ", option));
                     }
 
-                    String value = accountManager.getUserOption("totaleconomy:" + option, sender).orElse("0");
+                    String value = account.getDebugOption("totaleconomy:" + option).orElse("0");
                     value = value.equals("0") ? "1" : "0";
 
-                    accountManager.setUserOption("totaleconomy:" + option, sender, value);
+                    account.setDebugOption("totaleconomy:" + option, value);
 
                     src.sendMessage(messageManager.getMessage("jobs.toggle"));
 

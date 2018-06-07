@@ -25,23 +25,19 @@
 
 package com.erigitic.config;
 
-import com.erigitic.jobs.Job;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.sql.SqlQuery;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import com.erigitic.util.StringUtil;
 import ninja.leaping.configurate.ConfigurationNode;
 import org.slf4j.Logger;
-import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.service.context.Context;
 import org.spongepowered.api.service.economy.Currency;
@@ -53,7 +49,6 @@ import org.spongepowered.api.service.economy.transaction.TransactionType;
 import org.spongepowered.api.service.economy.transaction.TransactionTypes;
 import org.spongepowered.api.service.economy.transaction.TransferResult;
 import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColors;
 
 public class TEAccount implements UniqueAccount {
 
@@ -421,6 +416,32 @@ public class TEAccount implements UniqueAccount {
         }
     }
 
+    public boolean toggleJobNotifications() {
+        boolean toggledJobNotificationState = !hasJobNotifications();
+
+        if (databaseEnabled) {
+            SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).update("accounts")
+                    .set("job_notifications")
+                    .equals(toggledJobNotificationState ? "1" : "0")
+                    .where("uid")
+                    .equals(uuid.toString())
+                    .build();
+
+            if (sqlQuery.getRowsAffected() <= 0) {
+                logger.warn("An error occurred while updating the notification state in the database!");
+                return false;
+            }
+        } else {
+            ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+            accountConfig.getNode(uuid.toString(), "jobnotifications").setValue(toggledJobNotificationState);
+
+            accountManager.requestConfigurationSave();
+        }
+
+        return true;
+    }
+
     public boolean hasJobNotifications() {
         if (databaseEnabled) {
             SqlQuery sqlQuery = SqlQuery.builder(sqlManager.getDataSource()).select("job_notifications")
@@ -575,5 +596,19 @@ public class TEAccount implements UniqueAccount {
         }
 
         return true;
+    }
+
+    public Optional<String> getDebugOption(String option) {
+        ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+        return Optional.ofNullable(accountConfig.getNode(uuid.toString(), "options", option).getString(null));
+    }
+
+    public void setDebugOption(String option, String value) {
+        ConfigurationNode accountConfig = accountManager.getAccountConfig();
+
+        accountConfig.getNode(uuid.toString(), "options", option).setValue(value);
+
+        accountManager.requestConfigurationSave();
     }
 }
