@@ -28,18 +28,19 @@ package com.erigitic.jobs;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
 import ninja.leaping.configurate.ConfigurationNode;
 
 public class JobSet {
     private List<JobAction> actions = new ArrayList();
 
     public JobSet(ConfigurationNode node) {
-        node.getChildrenMap().forEach((actionStr, targetNode) -> {
-            if ((actionStr instanceof String) &&  targetNode != null) {
-                targetNode.getChildrenMap().forEach((targetID, actionNode) -> {
-                    if ((targetID instanceof String) && actionNode != null) {
+        node.getChildrenMap().forEach((actionType, actionNode) -> {
+            if ((actionType instanceof String) && actionNode != null) {
+                actionNode.getChildrenMap().forEach((targetID, targetNode) -> {
+                    if ((targetID instanceof String) && targetNode != null) {
                         JobAction action = new JobAction();
-                        action.loadConfigNode((String) actionStr, actionNode);
+                        action.loadConfigNode((String) actionType, targetNode);
 
                         if (action.isValid()) {
                             actions.add(action);
