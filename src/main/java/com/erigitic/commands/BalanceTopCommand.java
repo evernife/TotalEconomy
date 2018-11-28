@@ -97,7 +97,7 @@ public class BalanceTopCommand implements CommandExecutor {
 
         if (totalEconomy.isDatabaseEnabled()) {
             try (
-                 Connection connection = totalEconomy.getSqlManager().dataSource.getConnection();
+                 Connection connection = totalEconomy.getSqlManager().getDataSource().getConnection();
                  Statement statement = connection.createStatement()
             ) {
                 String currencyColumn = currency.getName() + "_balance";
