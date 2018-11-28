@@ -34,6 +34,7 @@ import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 
 public class Job {
+
     private String name;
     private BigDecimal salary;
     private List<String> sets = new ArrayList<>();
@@ -53,7 +54,7 @@ public class Job {
                 int level = req.getNode("level").getInt(0);
                 String permission = req.getNode("permission").getString(null);
 
-                if (job != null && (job.trim().isEmpty())) {
+                if (job != null && job.trim().isEmpty()) {
                     job = null;
                 }
                 
