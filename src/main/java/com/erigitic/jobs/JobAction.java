@@ -195,7 +195,7 @@ public class JobAction {
         return growthTrait != null;
     }
 
-    public boolean isIdTraited() {
+    public boolean hasIdTrait() {
         return idTrait != null;
     }
 
