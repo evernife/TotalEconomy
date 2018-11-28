@@ -29,6 +29,7 @@ import com.erigitic.config.AccountManager;
 import com.erigitic.config.TEAccount;
 import com.erigitic.main.TotalEconomy;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
 import ninja.leaping.configurate.ConfigurationNode;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
@@ -94,19 +96,22 @@ public class BalanceTopCommand implements CommandExecutor {
         final Currency fCurrency = currency;
 
         if (totalEconomy.isDatabaseEnabled()) {
-            try {
-                Statement statement = totalEconomy.getSqlManager().getDataSource().getConnection().createStatement();
+            try (
+                 Connection connection = totalEconomy.getSqlManager().dataSource.getConnection();
+                 Statement statement = connection.createStatement()
+            ) {
                 String currencyColumn = currency.getName() + "_balance";
                 statement.execute("SELECT * FROM accounts ORDER BY `" + currencyColumn + "` DESC LIMIT 10");
-                ResultSet set = statement.getResultSet();
 
-                while (set.next()) {
-                    BigDecimal amount = set.getBigDecimal(currencyColumn);
-                    UUID uuid = UUID.fromString(set.getString("uid"));
-                    Optional<User> optUser = Sponge.getServiceManager().provideUnchecked(UserStorageService.class).get(uuid);
-                    String username = optUser.map(User::getName).orElse("unknown");
+                try (ResultSet set = statement.getResultSet()) {
+                    while (set.next()) {
+                        BigDecimal amount = set.getBigDecimal(currencyColumn);
+                        UUID uuid = UUID.fromString(set.getString("uid"));
+                        Optional<User> optUser = Sponge.getServiceManager().provideUnchecked(UserStorageService.class).get(uuid);
+                        String username = optUser.map(User::getName).orElse("unknown");
 
-                    accountBalances.add(Text.of(TextColors.GRAY, username, ": ", TextColors.GOLD, currency.format(amount)));
+                        accountBalances.add(Text.of(TextColors.GRAY, username, ": ", TextColors.GOLD, currency.format(amount)));
+                    }
                 }
             } catch (SQLException e) {
                 throw new CommandException(Text.of("Failed to query db for ranking."), e);
