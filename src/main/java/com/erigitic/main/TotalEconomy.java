@@ -515,4 +515,8 @@ public class TotalEconomy {
     public SqlManager getSqlManager() {
         return sqlManager;
     }
+
+    public MessageManager getMessageManager(){
+        return messageManager;
+    }
 }

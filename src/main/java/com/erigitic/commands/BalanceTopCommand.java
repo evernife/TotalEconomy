@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import ninja.leaping.configurate.ConfigurationNode;
+import com.erigitic.util.MessageManager;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
@@ -50,6 +50,7 @@ import org.spongepowered.api.command.args.GenericArguments;
 import org.spongepowered.api.command.spec.CommandExecutor;
 import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.entity.living.player.User;
+import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.service.economy.Currency;
 import org.spongepowered.api.service.pagination.PaginationList;
 import org.spongepowered.api.service.pagination.PaginationService;
@@ -61,13 +62,16 @@ public class BalanceTopCommand implements CommandExecutor {
 
     private TotalEconomy totalEconomy;
     private AccountManager accountManager;
+    private MessageManager messageManager;
+
 
     private PaginationService paginationService = Sponge.getServiceManager().provideUnchecked(PaginationService.class);
     private PaginationList.Builder builder = paginationService.builder();
 
-    public BalanceTopCommand(TotalEconomy totalEconomy, AccountManager accountManager) {
+    public BalanceTopCommand(TotalEconomy totalEconomy, AccountManager accountManager, MessageManager messageManager) {
         this.totalEconomy = totalEconomy;
         this.accountManager = accountManager;
+        this.messageManager = messageManager;
     }
 
     public static CommandSpec commandSpec(TotalEconomy totalEconomy) {
@@ -79,16 +83,14 @@ public class BalanceTopCommand implements CommandExecutor {
                                 GenericArguments.string(Text.of("currency"))
                         )
                 )
-                .executor(new BalanceTopCommand(totalEconomy, totalEconomy.getAccountManager()))
+                .executor(new BalanceTopCommand(totalEconomy, totalEconomy.getAccountManager(),totalEconomy.getMessageManager()))
                 .build();
     }
 
     @Override
-    public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
+    public CommandResult execute(final CommandSource src, CommandContext args) throws CommandException {
         Optional<String> optCurrency = args.<String>getOne("currency");
         Currency currency = null;
-        List<Text> accountBalances = new ArrayList<>();
-
         if (optCurrency.isPresent()) {
             currency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
         }
@@ -100,6 +102,7 @@ public class BalanceTopCommand implements CommandExecutor {
         final Currency fCurrency = currency;
 
         if (totalEconomy.isDatabaseEnabled()) {
+            accountBalances.clear();
             try (
                  Connection connection = totalEconomy.getSqlManager().dataSource.getConnection();
                  Statement statement = connection.createStatement()
@@ -121,37 +124,70 @@ public class BalanceTopCommand implements CommandExecutor {
                 throw new CommandException(Text.of("Failed to query db for ranking."), e);
             }
         } else {
-            ConfigurationNode accountNode = accountManager.getAccountConfig();
-            Map<String, BigDecimal> accountBalancesMap = new HashMap<>();
-
-            accountNode.getChildrenMap().keySet().forEach(accountUUID -> {
-                UUID uuid;
-
-                // Check if the account is virtual or not. If virtual, skip the rest of the execution and move on to next account.
-                try {
-                    uuid = UUID.fromString(accountUUID.toString());
-                } catch (IllegalArgumentException e) {
-                    return;
-                }
-
-                TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(uuid).get();
-                Text playerName = playerAccount.getDisplayName();
-
-                accountBalancesMap.put(playerName.toPlain(), playerAccount.getBalance(fCurrency));
-            });
-
-            accountBalancesMap.entrySet().stream()
-                    .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
-                    .limit(10)
-                    .forEach(entry ->
-                        accountBalances.add(Text.of(TextColors.GRAY, entry.getKey(), ": ", TextColors.GOLD, fCurrency.format(entry.getValue()).toPlain()))
-                    );
+            if (needToCalculateAgain()){
+                Task.builder().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (stillCalculating){
+                            src.sendMessage(messageManager.getMessage("command.balance.top.stillcalculating"));
+                            return;
+                        }
+                        calculateBalTop(src,fCurrency);
+                        builder.title(Text.of(TextColors.GOLD, "Top 10 Balances"))
+                                .contents(accountBalances)
+                                .sendTo(src);
+                    }
+                }).async().name("FlexibleLogin - BaltopCommand").submit(totalEconomy);
+                return CommandResult.success();
+            }
         }
 
         builder.title(Text.of(TextColors.GOLD, "Top 10 Balances"))
-               .contents(accountBalances)
-               .sendTo(src);
+                .contents(accountBalances)
+                .sendTo(src);
 
         return CommandResult.success();
     }
+
+
+    private Map<String, BigDecimal> accountBalancesMap = new HashMap<>();
+    private List<Text> accountBalances = new ArrayList<>();
+    private boolean stillCalculating = false;
+    private void calculateBalTop(CommandSource src, final Currency fCurrency){
+        stillCalculating = true;
+        lastCheck = System.currentTimeMillis();
+        src.sendMessage(messageManager.getMessage("command.balance.top.calculate"));
+        accountBalances.clear();
+        accountBalancesMap.clear();
+        accountManager.getAccountConfig().getChildrenMap().keySet().forEach(accountUUID -> {
+            UUID uuid;
+            // Check if the account is virtual or not. If virtual, skip the rest of the execution and move on to next account.
+            try {
+                uuid = UUID.fromString(accountUUID.toString());
+            } catch (IllegalArgumentException e) {
+                return;
+            }
+
+            TEAccount playerAccount = (TEAccount) accountManager.getOrCreateAccount(uuid).get();
+            Text playerName = playerAccount.getDisplayName();
+            accountBalancesMap.put(playerName.toPlain(), playerAccount.getBalance(fCurrency));
+        });
+
+        accountBalancesMap.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .limit(10)
+                .forEach(entry ->
+                        accountBalances.add(Text.of(TextColors.GRAY, entry.getKey(), ": ", TextColors.GOLD, fCurrency.format(entry.getValue()).toPlain()))
+                );
+        stillCalculating = false;
+        return;
+    }
+
+    private long BALTOP_CHECK_TIME = 1000 * 60 * 3; //Only Calculate baltop again every 3 minutes
+    private long lastCheck = 0L;
+    private boolean needToCalculateAgain(){
+        return System.currentTimeMillis() - lastCheck > BALTOP_CHECK_TIME;
+    }
+
+
 }
