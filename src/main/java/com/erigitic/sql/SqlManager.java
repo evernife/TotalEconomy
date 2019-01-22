@@ -27,12 +27,13 @@ package com.erigitic.sql;
 
 import com.erigitic.main.TotalEconomy;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.service.sql.SqlService;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public class SqlManager {
     private Logger logger;

@@ -28,23 +28,20 @@ package com.erigitic.config;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.sql.SqlQuery;
-import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import ninja.leaping.configurate.ConfigurationNode;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.service.context.Context;
 import org.spongepowered.api.service.economy.Currency;
 import org.spongepowered.api.service.economy.account.Account;
 import org.spongepowered.api.service.economy.account.VirtualAccount;
-import org.spongepowered.api.service.economy.transaction.ResultType;
-import org.spongepowered.api.service.economy.transaction.TransactionResult;
-import org.spongepowered.api.service.economy.transaction.TransactionType;
-import org.spongepowered.api.service.economy.transaction.TransactionTypes;
-import org.spongepowered.api.service.economy.transaction.TransferResult;
+import org.spongepowered.api.service.economy.transaction.*;
 import org.spongepowered.api.text.Text;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class TEVirtualAccount implements VirtualAccount {
 

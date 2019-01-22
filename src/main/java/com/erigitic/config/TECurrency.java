@@ -25,9 +25,10 @@
 
 package com.erigitic.config;
 
-import java.math.BigDecimal;
 import org.spongepowered.api.service.economy.Currency;
 import org.spongepowered.api.text.Text;
+
+import java.math.BigDecimal;
 
 public class TECurrency implements Currency {
 

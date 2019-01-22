@@ -26,16 +26,12 @@
 package com.erigitic.shops;
 
 import com.erigitic.shops.data.PlayerShopInfoData;
-import java.util.Optional;
-
-import org.spongepowered.api.data.DataContainer;
-import org.spongepowered.api.data.DataQuery;
-import org.spongepowered.api.data.DataSerializable;
-import org.spongepowered.api.data.DataView;
-import org.spongepowered.api.data.Queries;
+import org.spongepowered.api.data.*;
 import org.spongepowered.api.data.persistence.AbstractDataBuilder;
 import org.spongepowered.api.data.persistence.InvalidDataException;
 import org.spongepowered.api.world.Location;
+
+import java.util.Optional;
 
 /**
  * Represents shop related data that'll be offered to a player, such as the location of an opened chest shop.

@@ -31,12 +31,6 @@ import com.erigitic.main.TotalEconomy;
 import com.erigitic.shops.data.PlayerShopInfoData;
 import com.erigitic.shops.data.ShopKeys;
 import com.erigitic.util.MessageManager;
-import java.math.BigDecimal;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
@@ -67,6 +61,12 @@ import org.spongepowered.api.util.blockray.BlockRay;
 import org.spongepowered.api.util.blockray.BlockRayHit;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
+
+import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public class ShopManager {
 

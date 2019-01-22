@@ -28,18 +28,6 @@ package com.erigitic.commands;
 import com.erigitic.config.AccountManager;
 import com.erigitic.config.TEAccount;
 import com.erigitic.main.TotalEconomy;
-import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
 import com.erigitic.util.MessageManager;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
@@ -57,6 +45,13 @@ import org.spongepowered.api.service.pagination.PaginationService;
 import org.spongepowered.api.service.user.UserStorageService;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.*;
 
 public class BalanceTopCommand implements CommandExecutor {
 
@@ -150,13 +145,14 @@ public class BalanceTopCommand implements CommandExecutor {
     }
 
 
+    public static String richestGuy = "";
     private Map<String, BigDecimal> accountBalancesMap = new HashMap<>();
     private List<Text> accountBalances = new ArrayList<>();
     private boolean stillCalculating = false;
     private void calculateBalTop(CommandSource src, final Currency fCurrency){
         stillCalculating = true;
         lastCheck = System.currentTimeMillis();
-        src.sendMessage(messageManager.getMessage("command.balance.top.calculate"));
+        if (src != null) src.sendMessage(messageManager.getMessage("command.balance.top.calculate"));
         accountBalances.clear();
         accountBalancesMap.clear();
         accountManager.getAccountConfig().getChildrenMap().keySet().forEach(accountUUID -> {
@@ -173,17 +169,25 @@ public class BalanceTopCommand implements CommandExecutor {
             accountBalancesMap.put(playerName.toPlain(), playerAccount.getBalance(fCurrency));
         });
 
+        boolean[] firstAchieved = new boolean[1];
+        firstAchieved[0] = false;
+
         accountBalancesMap.entrySet().stream()
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
                 .limit(10)
-                .forEach(entry ->
-                        accountBalances.add(Text.of(TextColors.GRAY, entry.getKey(), ": ", TextColors.GOLD, fCurrency.format(entry.getValue()).toPlain()))
+                .forEach(entry ->{
+                            if (!firstAchieved[0]) {
+                                firstAchieved[0] = true;
+                                richestGuy = entry.getKey();
+                            }
+                            accountBalances.add(Text.of(TextColors.GRAY, entry.getKey(), ": ", TextColors.GOLD, fCurrency.format(entry.getValue()).toPlain()));
+                        }
                 );
         stillCalculating = false;
         return;
     }
 
-    private long BALTOP_CHECK_TIME = 1000 * 60 * 3; //Only Calculate baltop again every 3 minutes
+    private long BALTOP_CHECK_TIME = 1000 * 60 * 1; //Only Calculate baltop again every 3 minutes
     private long lastCheck = 0L;
     private boolean needToCalculateAgain(){
         return System.currentTimeMillis() - lastCheck > BALTOP_CHECK_TIME;

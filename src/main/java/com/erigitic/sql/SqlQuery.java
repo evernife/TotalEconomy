@@ -25,12 +25,12 @@
 
 package com.erigitic.sql;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
-import javax.sql.DataSource;
 
 public class SqlQuery {
     private String statement;

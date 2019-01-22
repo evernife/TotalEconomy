@@ -26,22 +26,9 @@
 package com.erigitic.commands;
 
 import com.erigitic.config.AccountManager;
-
-import com.erigitic.jobs.JobBasedRequirement;
-import com.erigitic.jobs.JobManager;
-import com.erigitic.jobs.TEAction;
-import com.erigitic.jobs.TEActionReward;
-import com.erigitic.jobs.TEJob;
-import com.erigitic.jobs.TEJobSet;
+import com.erigitic.jobs.*;
 import com.erigitic.main.TotalEconomy;
 import com.erigitic.util.MessageManager;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
@@ -57,6 +44,9 @@ import org.spongepowered.api.service.pagination.PaginationList;
 import org.spongepowered.api.service.pagination.PaginationService;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
+
+import java.math.BigDecimal;
+import java.util.*;
 
 public class JobCommand implements CommandExecutor {
 

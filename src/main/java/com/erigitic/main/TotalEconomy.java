@@ -25,14 +25,7 @@
 
 package com.erigitic.main;
 
-import com.erigitic.commands.AdminPayCommand;
-import com.erigitic.commands.BalanceCommand;
-import com.erigitic.commands.BalanceTopCommand;
-import com.erigitic.commands.JobCommand;
-import com.erigitic.commands.PayCommand;
-import com.erigitic.commands.SetBalanceCommand;
-import com.erigitic.commands.ShopCommand;
-import com.erigitic.commands.ViewBalanceCommand;
+import com.erigitic.commands.*;
 import com.erigitic.config.AccountManager;
 import com.erigitic.config.TECurrency;
 import com.erigitic.config.TECurrencyRegistryModule;
@@ -41,22 +34,10 @@ import com.erigitic.shops.PlayerShopInfo;
 import com.erigitic.shops.Shop;
 import com.erigitic.shops.ShopItem;
 import com.erigitic.shops.ShopManager;
-import com.erigitic.shops.data.ImmutablePlayerShopInfoData;
-import com.erigitic.shops.data.ImmutableShopData;
-import com.erigitic.shops.data.ImmutableShopItemData;
-import com.erigitic.shops.data.PlayerShopInfoData;
-import com.erigitic.shops.data.ShopData;
-import com.erigitic.shops.data.ShopItemData;
-import com.erigitic.shops.data.ShopKeys;
+import com.erigitic.shops.data.*;
 import com.erigitic.sql.SqlManager;
 import com.erigitic.util.MessageManager;
 import com.google.inject.Inject;
-import java.io.File;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Optional;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
@@ -75,11 +56,7 @@ import org.spongepowered.api.event.EventManager;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.Order;
 import org.spongepowered.api.event.game.GameReloadEvent;
-import org.spongepowered.api.event.game.state.GameInitializationEvent;
-import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
-import org.spongepowered.api.event.game.state.GameStartedServerEvent;
-import org.spongepowered.api.event.game.state.GameStoppedServerEvent;
-import org.spongepowered.api.event.game.state.GameStoppingServerEvent;
+import org.spongepowered.api.event.game.state.*;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
@@ -87,6 +64,13 @@ import org.spongepowered.api.service.economy.Currency;
 import org.spongepowered.api.service.economy.EconomyService;
 import org.spongepowered.api.service.user.UserStorageService;
 import org.spongepowered.api.text.Text;
+
+import java.io.File;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Optional;
 
 @Plugin(id = "totaleconomy", name = "Total Economy", version = "1.8.2", description = "All in one economy plugin for Minecraft/Sponge")
 public class TotalEconomy {
@@ -321,9 +305,21 @@ public class TotalEconomy {
                 .description(Text.of("Display your balance"))
                 .permission("totaleconomy.command.balance")
                 .executor(new BalanceCommand(this, accountManager, messageManager))
-                .arguments(GenericArguments.optional(GenericArguments.string(Text.of("currencyName"))))
+                .arguments(GenericArguments.optional(GenericArguments.string(Text.of("playerName"))))
                 .build();
         game.getCommandManager().register(this, balanceCommand, "balance", "bal", "money");
+
+
+        CommandSpec economyCommand = CommandSpec.builder()
+                .description(Text.of("Comando facil de economia, 3 em 1!"))
+                .arguments(GenericArguments.none(),
+                        GenericArguments.optional(GenericArguments.remainingRawJoinedStrings(Text.of("allArgs"))))
+                .executor(new EconomyCommand(this, accountManager, messageManager))
+                .build();
+        game.getCommandManager().register(this, economyCommand, "economy", "eco");
+
+
+
 
         CommandSpec balanceTopCommand = BalanceTopCommand.commandSpec(this);
         game.getCommandManager().register(this, balanceTopCommand, "balancetop", "baltop");
