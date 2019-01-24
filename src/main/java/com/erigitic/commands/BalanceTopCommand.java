@@ -55,6 +55,9 @@ import java.util.*;
 
 public class BalanceTopCommand implements CommandExecutor {
 
+
+    public static BalanceTopCommand aBalanceTopCommand;
+    public final Currency currency;
     private TotalEconomy totalEconomy;
     private AccountManager accountManager;
     private MessageManager messageManager;
@@ -67,6 +70,8 @@ public class BalanceTopCommand implements CommandExecutor {
         this.totalEconomy = totalEconomy;
         this.accountManager = accountManager;
         this.messageManager = messageManager;
+        aBalanceTopCommand = this;
+        currency = totalEconomy.getDefaultCurrency();
     }
 
     public static CommandSpec commandSpec(TotalEconomy totalEconomy) {
@@ -74,9 +79,7 @@ public class BalanceTopCommand implements CommandExecutor {
                 .description(Text.of("Display top balances"))
                 .permission("totaleconomy.command.balancetop")
                 .arguments(
-                        GenericArguments.optional(
-                                GenericArguments.string(Text.of("currency"))
-                        )
+                        GenericArguments.none()
                 )
                 .executor(new BalanceTopCommand(totalEconomy, totalEconomy.getAccountManager(),totalEconomy.getMessageManager()))
                 .build();
@@ -84,17 +87,6 @@ public class BalanceTopCommand implements CommandExecutor {
 
     @Override
     public CommandResult execute(final CommandSource src, CommandContext args) throws CommandException {
-        Optional<String> optCurrency = args.<String>getOne("currency");
-        Currency currency = null;
-        if (optCurrency.isPresent()) {
-            currency = totalEconomy.getTECurrencyRegistryModule().getById("totaleconomy:" + optCurrency.get().toLowerCase()).orElse(null);
-        }
-
-        if (currency == null) {
-            currency = totalEconomy.getDefaultCurrency();
-        }
-
-        final Currency fCurrency = currency;
 
         if (totalEconomy.isDatabaseEnabled()) {
             accountBalances.clear();
@@ -127,7 +119,7 @@ public class BalanceTopCommand implements CommandExecutor {
                             src.sendMessage(messageManager.getMessage("command.balance.top.stillcalculating"));
                             return;
                         }
-                        calculateBalTop(src,fCurrency);
+                        calculateBalTop(src,currency);
                         builder.title(Text.of(TextColors.GOLD, "Top 10 Balances"))
                                 .contents(accountBalances)
                                 .sendTo(src);
@@ -146,10 +138,10 @@ public class BalanceTopCommand implements CommandExecutor {
 
 
     public static String richestGuy = "";
-    private Map<String, BigDecimal> accountBalancesMap = new HashMap<>();
+    public Map<String, BigDecimal> accountBalancesMap = new HashMap<>();
     private List<Text> accountBalances = new ArrayList<>();
     private boolean stillCalculating = false;
-    private void calculateBalTop(CommandSource src, final Currency fCurrency){
+    public void calculateBalTop(CommandSource src, final Currency fCurrency){
         stillCalculating = true;
         lastCheck = System.currentTimeMillis();
         if (src != null) src.sendMessage(messageManager.getMessage("command.balance.top.calculate"));

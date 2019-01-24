@@ -155,15 +155,15 @@ public class EconomyCommand implements CommandExecutor {
         switch (operationType){
             case GIVE:
                 recipientAccount.deposit(defaultCurrency, amount, cause);
-                sender.sendMessage(Text.of("§2§l ▶ §aO jogador §e" + argumentos.get(2) + "§a teve §6$" + amount + "§a adicionado(s) a sua conta!"));
+                sender.sendMessage(Text.of("§2§l ▶ §aO jogador §e" + argumentos.get(1) + "§a teve §6$" + amount + "§a adicionado(s) a sua conta!"));
                 break;
             case TAKE:
                 recipientAccount.withdraw(defaultCurrency, amount, cause);
-                sender.sendMessage(Text.of("§2§l ▶ §aO jogador §e" + argumentos.get(2) + "§a teve §6$" + amount + "§a retirado(s) da sua conta!"));
+                sender.sendMessage(Text.of("§2§l ▶ §aO jogador §e" + argumentos.get(1) + "§a teve §6$" + amount + "§a retirado(s) da sua conta!"));
                 break;
             case SET:
                 recipientAccount.setBalance(defaultCurrency, amount, cause);
-                sender.sendMessage(Text.of("§2§l ▶ §aO saldo do jogador §e" + argumentos.get(2) + "§a foi definido para: §6$" + amount));
+                sender.sendMessage(Text.of("§2§l ▶ §aO saldo do jogador §e" + argumentos.get(1) + "§a foi definido para: §6$" + amount));
                 break;
         }
         return CommandResult.success();
